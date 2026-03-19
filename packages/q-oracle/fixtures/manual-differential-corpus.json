@@ -1,0 +1,363 @@
+{
+  "generatedAt": "2026-03-19T19:00:00.000Z",
+  "source": "manual q oracle regression cases",
+  "fixtures": [
+    {
+      "id": "manual:table-literal",
+      "origin": "manual",
+      "program": "([] x: til 3; y: til 3)",
+      "browserSafe": true,
+      "notes": "Official q table literal with semicolons"
+    },
+    {
+      "id": "manual:table-column-lookup",
+      "origin": "manual",
+      "program": "t:([] x: til 3; y: til 3); t[`x]",
+      "browserSafe": true,
+      "notes": "Bracket-heavy column lookup on a simple table"
+    },
+    {
+      "id": "manual:table-row-column-lookup",
+      "origin": "manual",
+      "program": "t:([] x: til 3; y: til 3); t[0 2; `y]",
+      "browserSafe": true,
+      "notes": "Row and column indexing through table application"
+    },
+    {
+      "id": "manual:table-symbol-column-lookup",
+      "origin": "manual",
+      "program": "t:([] sym:`a`b`c; val:10 20 30); t[`sym]",
+      "browserSafe": true,
+      "notes": "Symbol-column lookup via bracket application"
+    },
+    {
+      "id": "manual:dictionary-lookup",
+      "origin": "manual",
+      "program": "d:(`a`b`c)!til 3; d[`b]",
+      "browserSafe": true,
+      "notes": "Dictionary application with bracket syntax"
+    },
+    {
+      "id": "manual:sessionful-show-and-index",
+      "origin": "manual",
+      "program": "v:10 20 30; show v; v[1]",
+      "browserSafe": true,
+      "notes": "Reference-card style sessionful example using prior assignment"
+    },
+    {
+      "id": "manual:abs-vector",
+      "origin": "manual",
+      "program": "abs -2 3 -4",
+      "browserSafe": true,
+      "notes": "Absolute value over a numeric vector"
+    },
+    {
+      "id": "manual:ceiling-vector",
+      "origin": "manual",
+      "program": "ceiling 1.2 3.0 -1.2",
+      "browserSafe": true,
+      "notes": "Ceiling on mixed-sign floats"
+    },
+    {
+      "id": "manual:desc-vector",
+      "origin": "manual",
+      "program": "desc 3 1 2",
+      "browserSafe": true,
+      "notes": "Descending sort over a simple vector"
+    },
+    {
+      "id": "manual:div-mod",
+      "origin": "manual",
+      "program": "(div[7;2];mod[7;2];div[-7;2];mod[-7;2])",
+      "browserSafe": true,
+      "notes": "Signed integer division and modulo semantics"
+    },
+    {
+      "id": "manual:reverse-vector",
+      "origin": "manual",
+      "program": "reverse 1 2 3",
+      "browserSafe": true,
+      "notes": "Vector reversal"
+    },
+    {
+      "id": "manual:reverse-string",
+      "origin": "manual",
+      "program": "reverse \"abc\"",
+      "browserSafe": true,
+      "notes": "String reversal"
+    },
+    {
+      "id": "manual:sqrt-vector",
+      "origin": "manual",
+      "program": "sqrt 9 2",
+      "browserSafe": true,
+      "notes": "Square root over a mixed vector"
+    },
+    {
+      "id": "manual:exp-vector",
+      "origin": "manual",
+      "program": "exp 0 1",
+      "browserSafe": true,
+      "notes": "Exponential over a simple vector"
+    },
+    {
+      "id": "manual:log-vector",
+      "origin": "manual",
+      "program": "log 1 10",
+      "browserSafe": true,
+      "notes": "Natural logarithm over a simple vector"
+    },
+    {
+      "id": "manual:upper-string",
+      "origin": "manual",
+      "program": "upper \"abC\"",
+      "browserSafe": true,
+      "notes": "Upper-casing a string"
+    },
+    {
+      "id": "manual:null-vector",
+      "origin": "manual",
+      "program": "null 0N 2 0N",
+      "browserSafe": true,
+      "notes": "Null detection over an int vector"
+    },
+    {
+      "id": "manual:all-bool",
+      "origin": "manual",
+      "program": "all 110b",
+      "browserSafe": true,
+      "notes": "Boolean all over a packed boolean vector"
+    },
+    {
+      "id": "manual:any-bool",
+      "origin": "manual",
+      "program": "any 001b",
+      "browserSafe": true,
+      "notes": "Boolean any over a packed boolean vector"
+    },
+    {
+      "id": "manual:signum-vector",
+      "origin": "manual",
+      "program": "signum -3 0 5",
+      "browserSafe": true,
+      "notes": "Signum over ints"
+    },
+    {
+      "id": "manual:reciprocal-vector",
+      "origin": "manual",
+      "program": "reciprocal 2 4",
+      "browserSafe": true,
+      "notes": "Reciprocal over ints"
+    },
+    {
+      "id": "manual:cols-table",
+      "origin": "manual",
+      "program": "cols ([]a:1 2;b:3 4)",
+      "browserSafe": true,
+      "notes": "Table column names"
+    },
+    {
+      "id": "manual:cut-chunk",
+      "origin": "manual",
+      "program": "2 cut 1 2 3 4 5",
+      "browserSafe": true,
+      "notes": "Chunk-based cut over a list"
+    },
+    {
+      "id": "manual:cut-indices",
+      "origin": "manual",
+      "program": "0 2 3 cut 1 2 3 4 5",
+      "browserSafe": true,
+      "notes": "Index-based cut over a list"
+    },
+    {
+      "id": "manual:cut-string",
+      "origin": "manual",
+      "program": "2 cut \"abcde\"",
+      "browserSafe": true,
+      "notes": "Chunk-based cut over a string"
+    },
+    {
+      "id": "manual:xlog-long-max",
+      "origin": "manual",
+      "program": "10 xlog 0Wj-1",
+      "browserSafe": true,
+      "notes": "Named dyad over a packed long-max style literal"
+    },
+    {
+      "id": "manual:q-addmonths",
+      "origin": "manual",
+      "program": ".Q.addmonths[2007.10.16;6 7]",
+      "browserSafe": true,
+      "notes": "Browser-safe .Q date helper"
+    },
+    {
+      "id": "manual:q-def-opt",
+      "origin": "manual",
+      "program": ".Q.def[`abc`xyz`efg!(1;2.;`a)].Q.opt .z.x",
+      "browserSafe": true,
+      "notes": "Default option binding over empty argv"
+    },
+    {
+      "id": "manual:q-fmt-each",
+      "origin": "manual",
+      "program": ".Q.fmt[6;2]each 1 234",
+      "browserSafe": true,
+      "notes": "Formatting helper under each"
+    },
+    {
+      "id": "manual:string-floor-count-each",
+      "origin": "manual",
+      "program": "count each string floor 1.2 123 1.23445 -1234578.5522",
+      "browserSafe": true,
+      "notes": "Composed each/string/floor pipeline"
+    },
+    {
+      "id": "manual:keyed-table-lookup",
+      "origin": "manual",
+      "program": "([k:`a`b] v:10 20)[`a]",
+      "browserSafe": true,
+      "notes": "Single-key keyed-table lookup"
+    },
+    {
+      "id": "manual:in-numeric",
+      "origin": "manual",
+      "program": "1 2 3 in 2 3",
+      "browserSafe": true,
+      "notes": "Vector membership over ints"
+    },
+    {
+      "id": "manual:qsql-select",
+      "origin": "manual",
+      "program": "select from ([]c:1 2 3)",
+      "browserSafe": true,
+      "notes": "Basic select over an inline table"
+    },
+    {
+      "id": "manual:qsql-exec",
+      "origin": "manual",
+      "program": "exec c from ([]c:1 2 3)",
+      "browserSafe": true,
+      "notes": "Basic exec column extraction"
+    },
+    {
+      "id": "manual:qsql-select-where",
+      "origin": "manual",
+      "program": "select from ([]c:1 2 3) where c in 2 3",
+      "browserSafe": true,
+      "notes": "Select with where membership filter"
+    },
+    {
+      "id": "manual:qsql-update-where",
+      "origin": "manual",
+      "program": "update d:c+1 from ([]c:1 2) where c=2",
+      "browserSafe": true,
+      "notes": "Update with a where clause creating a new column"
+    },
+    {
+      "id": "manual:qsql-delete-column",
+      "origin": "manual",
+      "program": "delete c from ([]c:1 2;d:3 4)",
+      "browserSafe": true,
+      "notes": "Delete a column from an inline table"
+    },
+    {
+      "id": "manual:qsql-delete-rows",
+      "origin": "manual",
+      "program": "delete from ([]c:1 2;d:3 4) where c=2",
+      "browserSafe": true,
+      "notes": "Delete rows from an inline table with where"
+    },
+    {
+      "id": "manual:apply-at",
+      "origin": "manual",
+      "program": "@[|:;\"zero\"]",
+      "browserSafe": true,
+      "notes": "Apply-at syntax over a unary operator"
+    },
+    {
+      "id": "manual:q-stringify",
+      "origin": "manual",
+      "program": ".Q.s ([h:1 2 3] m:4 5 6)",
+      "browserSafe": true,
+      "notes": "Pure .Q stringification helper"
+    },
+    {
+      "id": "manual:prev-vector",
+      "origin": "manual",
+      "program": "prev 1 2 3",
+      "browserSafe": true,
+      "notes": "Previous-item monad over ints"
+    },
+    {
+      "id": "manual:sums-vector",
+      "origin": "manual",
+      "program": "sums 1 2 3",
+      "browserSafe": true,
+      "notes": "Running sum over ints"
+    },
+    {
+      "id": "manual:rotate-vector",
+      "origin": "manual",
+      "program": "2 rotate 1 2 3 4",
+      "browserSafe": true,
+      "notes": "Word dyad rotation over a vector"
+    },
+    {
+      "id": "manual:sublist-vector",
+      "origin": "manual",
+      "program": "sublist[1 2;10 20 30 40]",
+      "browserSafe": true,
+      "notes": "Word dyad sublist extraction"
+    },
+    {
+      "id": "manual:like-prefix",
+      "origin": "manual",
+      "program": "\"abc\" like \"a*\"",
+      "browserSafe": true,
+      "notes": "String pattern match with like"
+    },
+    {
+      "id": "manual:within-range",
+      "origin": "manual",
+      "program": "1 2 3 within 0 2",
+      "browserSafe": true,
+      "notes": "Inclusive range membership with within"
+    },
+    {
+      "id": "manual:except-vector",
+      "origin": "manual",
+      "program": "1 2 3 except 2",
+      "browserSafe": true,
+      "notes": "Vector difference with except"
+    },
+    {
+      "id": "manual:inter-vector",
+      "origin": "manual",
+      "program": "1 2 3 inter 2 3 4",
+      "browserSafe": true,
+      "notes": "Intersection over simple numeric vectors"
+    },
+    {
+      "id": "manual:union-vector",
+      "origin": "manual",
+      "program": "1 2 2 3 union 2 3 4",
+      "browserSafe": true,
+      "notes": "Union over vectors with duplicates"
+    },
+    {
+      "id": "manual:lambda-hole-projection",
+      "origin": "manual",
+      "program": "{x+y}[;2]",
+      "browserSafe": true,
+      "notes": "Lambda projection with an interior hole"
+    },
+    {
+      "id": "manual:builtin-hole-projection",
+      "origin": "manual",
+      "program": "+[;1] 2 3",
+      "browserSafe": true,
+      "notes": "Builtin projection with an interior hole applied to a vector"
+    }
+  ]
+}

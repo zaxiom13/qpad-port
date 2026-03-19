@@ -1,0 +1,3181 @@
+{
+  "generatedAt": "2026-03-19T21:26:15.407Z",
+  "source": "official KX reference pages + timestored/jq upstream tests",
+  "fixtures": [
+    {
+      "id": "https://code.kx.com/q/basics/control/#0.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/control/",
+      "program": "show v:10?`v1`v2`v3               / values",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/control/#0.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/control/",
+      "program": "`r1`r2`r3 `v1`v2`v3?v             / Find",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/control/#0.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/control/",
+      "program": "(`v1`v2!`r1`r2) v                 / dictionary: implicit default",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/control/#0.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/control/",
+      "program": "`r1`r2`default `v1`v2?v           / explicit default",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/control/#1.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/control/",
+      "program": "((`abc,;string;::) `v1`v2?v)@'v",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/namespaces/#2.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/namespaces/",
+      "program": "key `",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/namespaces/#2.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/namespaces/",
+      "program": ".fee.fi.fo:42",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/namespaces/#2.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/namespaces/",
+      "program": "key `.fee",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/namespaces/#2.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/namespaces/",
+      "program": "key `.fee.fi",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#10.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "([] sym:enlist`aapl; price:100)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#11.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "([names:`bob`carol`bob`alice;city:`NYC`CHI`SFO`SFO]; ages:42 39 51 44)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#12.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t:([]name:`Tom`Dick`Harry;age:34 42 17)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#12.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t[1;`age]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#13.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t[;`age]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#13.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t[1;]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#14.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t[1]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#15.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t[`age]  / shorthand for t[;`age]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#15.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "t`age",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#18.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "\"abcdef\" 1 0 3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#19.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "count first (2 3 4;5 6)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#20.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "2 3 * 4 5 - 6 7",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#21.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "{x - 2} 5 3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#22.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(1; \"a\"; 3.5; `xyz) 2",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#24.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "+\\[1 2 3 4 5]                 / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#24.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "+\\[1000;1 2 3 4 5]            / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#24.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "1000+\\1 2 3 4 5               / binary, applied infix",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#25.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(+\\)[1000;1 2 3 4 5]          / binary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#25.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(+\\)1 2 3 4 5                 / unary, applied postfix",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#26.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(*) scan 1 2 3 4 5            / * is binary and infix",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#26.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "n:(\"the \";(\"quick \";\"brown \";(\"fox \";\"jumps \";\"over \");\"the \");(\"lazy \";\"dog.\"))",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#26.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(,/) over n                   / ,/ is variadic and infix",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#27.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "raze over n",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#27.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "{,/[x]}over n",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#29.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(+/)1 2 3 4       / sum the list 1 2 3 4",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#29.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "16 +/ 1 2 3 4     / sum the list with starting value 16",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#30.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "foo_bar:42",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#30.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "foo:3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#30.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "bar:til 6",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#32.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "x: 10",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#32.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "(x + 5; x: 20; x - 5)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#33.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "f:{a : 10; : x + a; a : 20}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#33.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "f[5]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#37.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "/Oh what a lovely day",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#37.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "2+2  /I know this one",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#38.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "count\"2/3\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#38.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "\\l /data/files",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#4.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "3           /atom",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#4.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "enlist 3    / 1-item list",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#7.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "([]sym:`aapl`msft`goog;price:100 200 300)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#8.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "sym:`aapl`msft`goog",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#8.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "price:100 200 300",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#8.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "([] sym; price)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/syntax/#9.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/syntax/",
+      "program": "([] sym:`aapl`msft`goog; price: 300)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "m:4 5#\"abcdefghijklmnopqrst\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "m[1 3]                        / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "m[1 3;2 4]                    / binary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "t:([]name:`Tom`Dick`Harry;city:`London`Paris`Rome)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "t[`name]                      / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "t 1                           / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#0.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "t[1;`city]                    / binary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#1.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "+/[2 3 4]                  / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#1.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "+/[1000000;2 3 4]          / binary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#1.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "-':[1952 1954 1960]        / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#1.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "-':[1900;1952 1954 1960]   / binary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#2.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "deltas                     / Subtract Each Prior",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#2.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "deltas[15 27 93]           / unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#2.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "deltas[10;15 27 93]        / binary - unsupported",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#2.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "-':[10;15 27 93]           / binary - supported",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#3.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "g:+/[100;]       / 2-item argument list resolves the binary form",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#3.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "g 2 3 4 5        / the projection is unary",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#4.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "|[2;til 5]        / binary: maximum",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#4.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "|:[til 5]         / unary: reverse",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#5.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "2|til 5            / maximum",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#5.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "(|:)\"zero\"         / reverse",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#5.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "2#\"zero\"           / take",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#5.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "(#:)\"zero\"         / count",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#6.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "|:[\"zero\"]       / bracket notation",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#6.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "(|:)\"zero\"       / prefix",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#6.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "(|:)@\"zero\"      / apply-at",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/basics/variadic/#6.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/basics/variadic/",
+      "program": "@[|:;\"zero\"]     / apply-at",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#0.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.A",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#0.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.a",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#0.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.an",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#1.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.addmonths[2007.10.16;6 7]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "n:100",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t:([]time:.z.T+til n;sym:n?`2;num:n)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.10",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "@[get;\"select from tt\";-2@]; / no error",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dpft[`:.;;`sym;`t]each 2010.01.01+til 5",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "tt:t",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dpft[`:.;;`sym;`tt]last 2010.01.01+til 5",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\l .",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "tt",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.7",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "@[get;\"select from tt\";-2@]; / error",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.8",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.bv[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#10.9",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.vp",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#11.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.chk[`:hdb]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#13.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.P",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#13.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.D",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#13.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.P!.Q.D",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#14.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dd[`:dir]`file",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#14.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "{x .Q.dd'key x}`:dir",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#14.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dd[`AAPL]\"O\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#14.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "update sym:esym .Q.dd'ex from([]esym:`AAPL`IBM;ex:\"ON\")",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#15.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.def[`abc`xyz`efg!(1;2.;`a)].Q.opt .z.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#16.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.def[`param1`param2`param3!(1;1999.01.01;23.1)].Q.opt .z.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#17.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "trade:([]sym:10?`a`b`c;time:.z.T+10*til 10;price:50f+10?50f;size:100*1+10?10)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#17.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dpft[`:db;2007.07.23;`sym;`trade]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#17.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "delete trade from `.",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#17.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "trade",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#17.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\l db",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#18.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t:([]a:til 2;b:2#enlist (til 1;10))  / bad table, b is unmappable",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#18.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t1:([]a:til 2;b:2#til 1)  / good table, b is mappable",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#18.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "helper:{$[(type x)or not count x;1;t:type first x;all t=type each x;0]};",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#18.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "select from (raze {([]table:enlist x;columns:enlist where not helper each flip .Q.en[`:.]`. x)} each tables[]) where 0<count each columns",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#19.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "show t:([]a:10?`a`b`c;b:10?10)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#19.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dpfts[`:db;2007.07.23;`a;`t;`mysym]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#19.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "mysym",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#2.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.addmonths[2006.10.29;4]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "d:(`:/dst/taq;2000.10.02;`trade)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "s:(`:/src/taq;19;0)  / nonpositive length from end",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f:`time`price`size`stop`corr`cond`ex",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t:(\"iiihhc c\";4 4 4 2 2 1 1 1)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "g:{x[`stop]=:240h;@[x;`price;%;1e4]}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#20.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.dsftg[d;s;f;t;g]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#21.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t1:([]col1:`a`b`c;col2:1 2 3)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#21.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "`:/tmp/db/t1/ set .Q.en[`:/tmp/db;t1];",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#21.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "sym                                     / contents of in-memory sym populated from symbols in table",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#21.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "get `:/tmp/db/sym                       / on-disk sym same as in-memory sym",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#21.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "get `:/tmp/db/t1/col1                   / col1 enumerated against sym domain",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#22.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t2:([]col1:`a`d`e;col2:1 2 3)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#22.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "`:/tmp/db/t2/ set .Q.en[`:/tmp/db;t2];  / enumerate additional table against existing sym domain",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#22.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "sym                                     / in-memory sym now contains additional symbols",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#23.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t1:([]a:`a`b`c;b:1 2 3)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#23.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.en[::;t1];",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#23.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "sym",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#23.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t2:([]a:`a`d`e;b:1 2 3)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#23.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.en[::;t2];",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#24.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "([]sym:`mysym$`a`b`c)~.Q.ens[`:db;([]sym:`a`b`c);`mysym]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#25.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\P 0",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#25.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.f[2;]each 9.996 34.3445 7817047037.90 781704703567.90 -.02 9.996 -0.0001",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#26.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "10 xlog 0Wj-1",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#27.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f:{2 xexp x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#27.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "vec:til 100000",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#27.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\t f vec",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#27.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\t .Q.fc[f]vec",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#28.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\t f peach vec",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#29.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "src:0N!flip`sym`time`price`size!10?'(`3;.z.t;1000f;10000)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#29.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ff[src] enlist `sym`ratioA`ratioB!3#1",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#3.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.addr`$\"127.0.0.1\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#30.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.fmt[6;2]each 1 234",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#31.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "fix:{.Q.fmt'[x+1+count each string floor y;x;y]}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#31.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "fix[2]1.2 123 1.23445 -1234578.5522",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#32.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "align:{neg[max count each x]$x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#32.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "align fix[2]1.2 123 1.23445 -1234578.5522",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#34.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "fmt:{.Q.fmt[x;(count 2_string y-i)&x-1+count string i:\"i\"$y]y}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#34.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "fmt[9] each 34.4 343434.358",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#35.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.fs[0N!]`:potamus.csv",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#36.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.fs[{0N!(\"SSSSSSID\";\",\")0:x}]`:potamus.csv",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#37.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\l sp.q",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#37.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "sp 2 3           / index simple table with integer list argument",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#37.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "s 2 3            / index keyed table fails",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#38.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ft[{x 2 3};s]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#39.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "select from s where i in 2 3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#4.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.addr`localhost",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#40.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "vec:100000 ? 30     / long vector with few different values",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#40.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f:{exp x*x}         / e raised to x*x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#40.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\t:1000 r1:f vec",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#40.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\t:1000 r2:.Q.fu[f;vec]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#40.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "r1~r2",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "a:til 10000000      / create an object that is ≥64MB",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]              / view current heap size and how many bytes used of the heap (all objects plus previously allocated object)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gc[]             / garbage collection doesnt return any memory to OS",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "delete a from `.    / delete the original object, placing it on the heap",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]              / used memory has decreased, heap remains the same",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gc[]             / garbage collection has returned 134217728 to the OS from the heap",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#41.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]              / heap size has reduced, while used memory remains the same",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]              / initial memory stats",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "v:{(10#\"a\";10000#\"b\")}each til 1000000;   / create 1000000 rows, each containing 2 elements of 10 chars and 10000 chars",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.10",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]              / used memory remains the same as before, but heap has reduced",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]                                    / both heap and used memory has grown",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gc[]             / garbage collection has found no slab of contiguous unused memory of ≥64MB to free",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "v:v[;0]             / change v to 1000000 rows, each only containing the 1st element of 10 chars (2nd element removed)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gc[]             / garbage collection has found no contiguous unused memory of ≥64MB to free",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.7",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "v:-8!v              / convert v into its serialised form, return vector used by v to heap",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.8",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gc[]             / garbage collection now found unused contiguous memory slab ≥64MB to return to OS",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#42.9",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "v:-9!v              / convert serialised form of v back to its original state",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#43.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.gz{0N!count x;x}[.Q.gz(9;10000#\"helloworld\")]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#44.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.hg`:http://www.google.com",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#44.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "count a:.Q.hg`:http:///www.google.com",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#44.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "show a",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#44.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.hg \":http://username:password@www.google.com\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#45.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.hg \":https://www.google.com\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#46.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.host 2130706433i",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#47.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\"I\"$\"104.130.139.23\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#47.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.host \"I\"$\"104.130.139.23\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#48.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.host .Q.addr `$\"www.yahoo.co.uk\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#49.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.host \"I\"$\"172.17.0.4\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#5.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.addr`blah",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#51.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.hp[\"http://google.com\";.h.ty`json]\"my question\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#52.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id each `$(\"ab\";\"a/b\";\"two words\";\"2drifters\";\"2+2\")",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#53.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id flip (5#.Q.res)!(5#())",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#53.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id flip(`$(\"a\";\"a/b\"))!2#()",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#54.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id (5#.Q.res)!(5#())",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#55.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id`$\"+\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#56.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "cols .Q.id(`$(\"count+\";\"count*\";\"count1\"))xcol([]1 2;3 4;5 6)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#56.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "cols .Q.id(`$(\"aa\";\"=\";\"+\"))xcol([]1 2;3 4;5 6)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#57.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.id`$\"_\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#57.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "cols .Q.id(`$(\"3aa\";\"_aa\";\"_aa\"))xcol([]1 2;3 4;5 6)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#6.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "10h$.Q.atob \"aGVsbG8=\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#60.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t:select count i by date from trade",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#60.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "count .Q.ind[trade;(exec first sum x from t where date<2010.01.07)+til first exec x from t where date=2010.01.07]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#60.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "(select from trade where date=2010.01.07)~.Q.ind[trade;(exec first sum x from t where date<2010.01.07)+til first exec x from t where date=2010.01.07]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#61.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.x10 12345",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#61.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.j10 .Q.x10 12345",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#61.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.j10 each .Q.x10 each 12345+1 2 3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#61.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.x12 12345",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#61.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.j12 .Q.x12 12345",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#62.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.K",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#62.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.k",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#63.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ld read0`:funcs.q",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "`:/tmp/db/2001.01.01/t/ set tt:.Q.en[`:/tmp/db]([]sym:10?`A`B`C;time:10?.z.T;price:10?10f)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\l /tmp/db",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "`:2001.01.02/t/`:2001.01.03/t/ set\\:tt",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "date",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.li[2001.01.02];date",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#64.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.li[2001.01.02 2001.01.03];select count i by date from t",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#65.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\cd",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#65.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "key`:db/2023.02.01",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#65.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.lo[`:db;0;0]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#66.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "0W~.Q.M  / defaults to long infinity",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#67.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.MAP[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#69.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.n",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#69.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.nA",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#7.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.b6",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#70.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "params:.Q.opt .z.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#70.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "show params",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#70.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "params`param1",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#71.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.opt .z.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#73.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.par[`:.;2010.02.02;`quote]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#74.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "all{`p=attr .Q.par[`:.;x;`quote]`sym}each  date",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#75.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.PV",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#75.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.PD",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#75.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.PV!.Q.PD",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#76.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.pn",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#76.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.cn t",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#76.7",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.pv!flip .Q.pn",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#76.8",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.view 2#date",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#77.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.view 2010.05.28 2010.05.29 2010.05.30",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#78.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#78.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.qp B",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#78.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.qp select from B",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#78.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.qp C",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#79.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.res,key`.q",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#8.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f:{{.Q.bt[];x*2}x+1}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#8.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f 4",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#8.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "g:{a:x*2;a+y}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#8.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "g[3;\"hello\"]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#8.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ").Q.bt[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#80.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.s ([h:1 2 3] m: 4 5 6)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#81.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.sha1\"Hello World!\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#82.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.t",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#82.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.t?\"j\"  / longs have datatype 7",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#83.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "f:{`hello+x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#83.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "/ print the formatted backtrace and error string to stderr",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#83.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.trp[f;2;{2\"error: \",x,\"\\nbacktrace:\\n\",.Q.sbt y;-1}]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "h:hopen`::5001   / f is defined on the remote",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "h\"f `a\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "/ a made up protocol: (0;result) or (1;backtrace string)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "h\".z.pg:{.Q.trp[(0;)@value@;x;{(1;.Q.sbt y)}]}\"",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "h\"f 3\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#84.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "1@(h\"f `a\")1;    / output the backtrace string to stdout",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#85.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.trpd[{x+y};(1;2);{2\"error: \",x,\"\\nbacktrace:\\n\",.Q.sbt y;-1}]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#85.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.trpd[{x+y};(1;`2);{2\"error: \",x,\"\\nbacktrace:\\n\",.Q.sbt y;-1}]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#86.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "\\ts .Q.hg `:http://www.google.com",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#86.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ts[.Q.hg;enlist`:http://www.google.com]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#86.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ts[+;2 3]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#87.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t:([]a:3 4 5;b:\"abc\";c:(3;\"xy\";`ab);d:3 2#3 4 5;e:(\"abc\";\"de\";\"fg\"))",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#87.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "t",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#87.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.ty each t`a`b`c`d`e",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#9.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.btoa\"Hello World!\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#90.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.w[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#91.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.Xf[\"C\";`:emptyNestedCharVector];",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#91.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "type get`:emptyNestedCharVector",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#92.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": "cla:.Q.opt .z.X /command-line arguments",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotq/#92.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotq/",
+      "program": ".Q.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#0.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.a",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#1.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".Q.addr .z.h",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#10.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.bm:{`msg set (.z.p;x);}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#11.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen `:tcps://localhost:5000",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#11.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h\".z.e\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#12.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h\".z.w\\\".z.e\\\"\"",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#14.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.exit",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#14.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.exit:{0N!x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#14.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "\\\\",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#14.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "exit 42",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#14.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "exit 0",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#15.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.exit:{`thiswontwork+x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#15.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ")x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#15.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ")'`up",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#16.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.f",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#17.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.H~key .z.W",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#18.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.h",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#19.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.i",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#2.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen myhost:1234",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#2.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h\"\\\"i\\\"$0x0 vs .z.a\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#20.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.K",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#20.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.k",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#22.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "`maxCoresAllowed`expiryDate`updateDate`````bannerText`!.z.l",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#23.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.M",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#23.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "foo:use`foo",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#23.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "foo.f[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#23.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "foo.g[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#24.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.m,:use`foo",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#24.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.m",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#24.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "upd[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#25.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.N",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#26.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.n",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#27.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.o",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#28.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.P",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#29.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.p",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#3.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen 1234",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pc",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pc:{0N!(.z.a;.z.u;.z.w;x);x}",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "\\p 2021",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "(2130706433;`simon;0;4)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.u",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#30.6",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.w",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#31.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "/open connections to 4 processes on the localhost",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#31.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pd:`u#hopen each 20000+til 4",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#32.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pd:{n:abs system\"s\";$[n=count handles;handles;[hclose each handles;:handles::`u#hopen each 20000+til n]]}",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#32.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pc:{handles::`u#handles except x;}",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#32.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "handles:`u#`int$();",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#33.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "aa:([]a:1 2 3;b:11 22 33)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#33.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "aa",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#33.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pi:{0N!value x;}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#34.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "\\x .z.pi",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#36.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.ps:{[x]0N!(`zps;x);value x}",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#36.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.pg:{[x]0N!(`zpg;x);value x}",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#36.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "0 \"2+2\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#37.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "{.z.s}[]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#38.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "fact:{$[x<=0;1;x*.z.s x-1]}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#38.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "fact[5]",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "/ set the timer to 1000 milliseconds",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "\\t 1000",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "/ argument x is the timestamp scheduled for the callback",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "/ .z.ts is called once per second and returns the timestamp",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.ts:{0N!x}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#39.5",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "2010.12.16D17:12:12.849442000",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#4.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen `:unix://1234",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#4.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h\".z.a\"",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#41.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.u                  / console is handle 0",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#41.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "0\".z.u\"               / explicitly using handle 0",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#41.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen`:localhost:5000:geoffrey:geffspasswd",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#41.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h\".z.u\"               / server side .z.u is as passed by the client to hopen",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#41.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h({.z.w\".z.u\"};::)    / client side returns null symbol",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#42.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.vs:{0N!(x;y;value x)}",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#42.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "m:(1 2;3 4)",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#42.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "m[1;1]:0",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#43.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen ...",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#43.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#43.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "neg[h]({};til 1000000); neg[h]({};til 10); .z.W",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#43.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "neg[h]({};til 1000000); neg[h]({};til 10); sum each .z.W",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#45.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "h:hopen 5000",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#45.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "neg[h]\"11+1111111\";.z.W h",
+      "browserSafe": false
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#45.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "neg[h]\"11+1111111\";(-38!h)`m",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#47.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.X",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#48.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.x",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#49.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.Z",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#50.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.z",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#51.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.zd:17 2 4            / enable compression",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#51.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "`:fileA set til 1000    / create file, now compressed as .z.zd set",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#51.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "`:fileB set til 1000    / create file, now compressed as .z.zd set",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#51.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "-21!`:fileA             / check that file is compressed",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#51.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "-21!`:fileB             / check that file is compressed",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#52.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.zd:17 2 4                            / enable compression",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#52.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "`:file.something til 1000               / create file with extension while .z.zd set",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#52.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "-21!`:file.something                    / file not compressed, no compression info",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#52.3",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "(`:file.something;17;2;4) set til 1000  / create file with extension, pass compression settings on creation",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#52.4",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "-21!`:file.something                    / file is compressed",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#53.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "show dict:``a`b!(17 5 3;17 2 6;17 2 6)  / default compression is `zstd` with level 3",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#53.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.zd:dict",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#54.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.zd:17 2 6        / set zip defaults",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#54.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "\\x .z.zd            / clear zip defaults",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#9.0",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "a::x+y",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#9.1",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": "b::x+1",
+      "browserSafe": true
+    },
+    {
+      "id": "https://code.kx.com/q/ref/dotz/#9.2",
+      "origin": "reference",
+      "page": "https://code.kx.com/q/ref/dotz/",
+      "program": ".z.b",
+      "browserSafe": true
+    },
+    {
+      "id": "AsinOpTest:5",
+      "origin": "upstream",
+      "suite": "AsinOpTest",
+      "program": "asin 0.8",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AtanOpTest:5",
+      "origin": "upstream",
+      "suite": "AtanOpTest",
+      "program": "atan 0.5",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AtanOpTest:6",
+      "origin": "upstream",
+      "suite": "AtanOpTest",
+      "program": "atan 42",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AttrOpTest:5",
+      "origin": "upstream",
+      "suite": "AttrOpTest",
+      "program": "attr 1 3 4",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AttrOpTest:6",
+      "origin": "upstream",
+      "suite": "AttrOpTest",
+      "program": "attr asc 1 3 4",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:10",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1.0 0w",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:11",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg -0w 0w",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:13",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg ()",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:6",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:7",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1 0n 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:9",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg (1 2;0N 4)",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "DevOpTest:5",
+      "origin": "upstream",
+      "suite": "DevOpTest",
+      "program": "dev 10 343 232 55",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:6",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "distinct 2 3 7 3 5 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:7",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "distinct flip `a`b`c!(1 2 1;2 3 2;\"aba\")",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:9",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "system \"P 14\";distinct 2 + 0f,10 xexp -13",
+      "browserSafe": false,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:10",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "1 2 3 4 5^6 0N 8 9 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:11",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "a:11.0 2.1 3.1 0n 4.5 0n;type a",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:13",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "10^a",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:15",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "type 10^a",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:17",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "(`a`b`c!1 2 3)^`b`c!0N 30",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:6",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "0^1 2 3 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:7",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "100^1 2 -5 0N 10 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:8",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "1.0^1.2 -4.5 0n 0n 15",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:9",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "`nobody^`tom`dick``harry",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:5",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last til 10",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:6",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last `a`b`c!1 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:7",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last 42",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LowerOpTest:5",
+      "origin": "upstream",
+      "suite": "LowerOpTest",
+      "program": "lower\"IBM\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LowerOpTest:6",
+      "origin": "upstream",
+      "suite": "LowerOpTest",
+      "program": "lower`IBM",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:10",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max ()",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:11",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max `int$()",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:5",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 2 5 7 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:6",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max \"genie\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:7",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 0N 5 0N 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:8",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 0N 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:5",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 2 5 7 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:6",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min \"genie\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:7",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 0N 5 0N 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:8",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 0N 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:5",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:6",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:7",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 2 3 0N 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:8",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd (1 2 3 4;2 3 5 7)",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:9",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd \"abc\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SdevOpTest:5",
+      "origin": "upstream",
+      "suite": "SdevOpTest",
+      "program": "sdev 10 343 232 55",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SqrtOpTest:5",
+      "origin": "upstream",
+      "suite": "SqrtOpTest",
+      "program": "sqrt -1 0n 0 25 50",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SvarOpTest:5",
+      "origin": "upstream",
+      "suite": "SvarOpTest",
+      "program": "var 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SvarOpTest:6",
+      "origin": "upstream",
+      "suite": "SvarOpTest",
+      "program": "svar 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:10",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 5f",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "TilOpTest:6",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 0",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:7",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 1b",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:8",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 5",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:5",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper\"ibm\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:6",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper (\"ibm\";\"msft\")",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:7",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper`ibm",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:8",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper`ibm`msft",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "VarOpTest:5",
+      "origin": "upstream",
+      "suite": "VarOpTest",
+      "program": "var 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "VarOpTest:6",
+      "origin": "upstream",
+      "suite": "VarOpTest",
+      "program": "var 2 3 5 0n 7",
+      "browserSafe": true,
+      "ignored": false
+    }
+  ]
+}

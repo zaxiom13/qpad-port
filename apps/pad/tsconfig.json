@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "dist",
+    "rootDir": ".",
+    "types": ["vite/client"],
+    "paths": {
+      "@qpad/core": ["src/qpad-modules.d.ts"],
+      "@qpad/engine": ["src/qpad-modules.d.ts"],
+      "@qpad/language": ["src/qpad-modules.d.ts"]
+    }
+  },
+  "include": ["src/**/*", "vite.config.ts"]
+}

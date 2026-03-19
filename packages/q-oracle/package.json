@@ -1,0 +1,26 @@
+{
+  "name": "@qpad/oracle",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@qpad/core": "workspace:*",
+    "@qpad/engine": "workspace:*"
+  },
+  "scripts": {
+    "build": "node --experimental-strip-types src/merge-corpus.ts --write",
+    "typecheck": "node --experimental-strip-types --test tests/helpers.test.ts",
+    "test": "node --experimental-strip-types --test tests/helpers.test.ts",
+    "test:diff": "node --experimental-strip-types --test tests/diff.test.ts",
+    "fixtures:ref": "node --experimental-strip-types src/reference.ts --write",
+    "fixtures:jq": "node --experimental-strip-types src/jq-fixtures.ts --write",
+    "fixtures:merge": "node --experimental-strip-types src/merge-corpus.ts --write"
+  }
+}

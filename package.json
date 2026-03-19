@@ -1,0 +1,25 @@
+{
+  "name": "qpad-port",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev": "npm run dev -w apps/pad",
+    "fixtures:ref": "npm run fixtures:ref -w @qpad/oracle",
+    "fixtures:jq": "npm run fixtures:jq -w @qpad/oracle",
+    "test:diff": "npm run test:diff -w @qpad/oracle"
+  }
+}

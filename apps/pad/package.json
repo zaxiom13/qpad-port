@@ -1,0 +1,28 @@
+{
+  "name": "@qpad/pad",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
+    "@qpad/core": "0.1.0",
+    "@qpad/engine": "0.1.0",
+    "@qpad/language": "0.1.0",
+    "monaco-editor": "^0.55.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.6"
+  }
+}

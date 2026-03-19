@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "../q-core/src/**/*"],
+  "exclude": ["tests/**/*"]
+}

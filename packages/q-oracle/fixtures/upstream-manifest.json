@@ -1,0 +1,479 @@
+{
+  "generatedAt": "2026-03-19T21:26:18.818Z",
+  "source": "timestored/jq upstream tests",
+  "fixtures": [
+    {
+      "id": "MaxOpTest:10",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max ()",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:11",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max `int$()",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:5",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 2 5 7 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:6",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max \"genie\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:7",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 0N 5 0N 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MaxOpTest:8",
+      "origin": "upstream",
+      "suite": "MaxOpTest",
+      "program": "max 0N 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SqrtOpTest:5",
+      "origin": "upstream",
+      "suite": "SqrtOpTest",
+      "program": "sqrt -1 0n 0 25 50",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LowerOpTest:5",
+      "origin": "upstream",
+      "suite": "LowerOpTest",
+      "program": "lower\"IBM\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LowerOpTest:6",
+      "origin": "upstream",
+      "suite": "LowerOpTest",
+      "program": "lower`IBM",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AtanOpTest:5",
+      "origin": "upstream",
+      "suite": "AtanOpTest",
+      "program": "atan 0.5",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AtanOpTest:6",
+      "origin": "upstream",
+      "suite": "AtanOpTest",
+      "program": "atan 42",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:6",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "distinct 2 3 7 3 5 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:7",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "distinct flip `a`b`c!(1 2 1;2 3 2;\"aba\")",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DistinctOpTest:9",
+      "origin": "upstream",
+      "suite": "DistinctOpTest",
+      "program": "system \"P 14\";distinct 2 + 0f,10 xexp -13",
+      "browserSafe": false,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:10",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "1 2 3 4 5^6 0N 8 9 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:11",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "a:11.0 2.1 3.1 0n 4.5 0n;type a",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:13",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "10^a",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:15",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "type 10^a",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:17",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "(`a`b`c!1 2 3)^`b`c!0N 30",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "FillOpTest:6",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "0^1 2 3 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:7",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "100^1 2 -5 0N 10 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:8",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "1.0^1.2 -4.5 0n 0n 15",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "FillOpTest:9",
+      "origin": "upstream",
+      "suite": "FillOpTest",
+      "program": "`nobody^`tom`dick``harry",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:5",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last til 10",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:6",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last `a`b`c!1 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "LastOpTest:7",
+      "origin": "upstream",
+      "suite": "LastOpTest",
+      "program": "last 42",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AttrOpTest:5",
+      "origin": "upstream",
+      "suite": "AttrOpTest",
+      "program": "attr 1 3 4",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AttrOpTest:6",
+      "origin": "upstream",
+      "suite": "AttrOpTest",
+      "program": "attr asc 1 3 4",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:10",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1.0 0w",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:11",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg -0w 0w",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:13",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg ()",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "AvgOpTest:6",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:7",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg 1 0n 2 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AvgOpTest:9",
+      "origin": "upstream",
+      "suite": "AvgOpTest",
+      "program": "avg (1 2;0N 4)",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "VarOpTest:5",
+      "origin": "upstream",
+      "suite": "VarOpTest",
+      "program": "var 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "VarOpTest:6",
+      "origin": "upstream",
+      "suite": "VarOpTest",
+      "program": "var 2 3 5 0n 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:5",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:6",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:7",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd 2 3 0N 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:8",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd (1 2 3 4;2 3 5 7)",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "PrdOpTest:9",
+      "origin": "upstream",
+      "suite": "PrdOpTest",
+      "program": "prd \"abc\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:5",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 2 5 7 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:6",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min \"genie\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:7",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 0N 5 0N 1 3",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "MinOpTest:8",
+      "origin": "upstream",
+      "suite": "MinOpTest",
+      "program": "min 0N 0N",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SdevOpTest:5",
+      "origin": "upstream",
+      "suite": "SdevOpTest",
+      "program": "sdev 10 343 232 55",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:5",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper\"ibm\"",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:6",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper (\"ibm\";\"msft\")",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:7",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper`ibm",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "UpperOpTest:8",
+      "origin": "upstream",
+      "suite": "UpperOpTest",
+      "program": "upper`ibm`msft",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:10",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 5f",
+      "browserSafe": true,
+      "ignored": true,
+      "notes": "Upstream jq test marked @Ignore"
+    },
+    {
+      "id": "TilOpTest:6",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 0",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:7",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 1b",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "TilOpTest:8",
+      "origin": "upstream",
+      "suite": "TilOpTest",
+      "program": "til 5",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SvarOpTest:5",
+      "origin": "upstream",
+      "suite": "SvarOpTest",
+      "program": "var 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "SvarOpTest:6",
+      "origin": "upstream",
+      "suite": "SvarOpTest",
+      "program": "svar 2 3 5 7",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "AsinOpTest:5",
+      "origin": "upstream",
+      "suite": "AsinOpTest",
+      "program": "asin 0.8",
+      "browserSafe": true,
+      "ignored": false
+    },
+    {
+      "id": "DevOpTest:5",
+      "origin": "upstream",
+      "suite": "DevOpTest",
+      "program": "dev 10 343 232 55",
+      "browserSafe": true,
+      "ignored": false
+    }
+  ]
+}
