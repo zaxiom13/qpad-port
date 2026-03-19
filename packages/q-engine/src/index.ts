@@ -1556,7 +1556,12 @@ export class Parser {
   }
 
   private parseStatement(): AstNode {
-    if (this.peek().kind === "operator" && this.peek().value === ":") {
+    if (
+      this.peek().kind === "operator" &&
+      this.peek().value === ":" &&
+      this.peek(1).kind !== "lbracket" &&
+      !(this.peek(1).kind === "operator" && this.peek(1).value === ":")
+    ) {
       this.consume("operator", ":");
       return { kind: "return", value: this.parseExpression() };
     }
@@ -1898,13 +1903,22 @@ export class Parser {
 
   private parseOperatorValue(): AstNode {
     const base = this.consume("operator").value;
-    if (base === ":" || base === ";") {
+    if (
+      base === ";" ||
+      (base === ":" &&
+        this.peek().kind !== "lbracket" &&
+        !(this.peek().kind === "operator" && this.peek().value === ":"))
+    ) {
       throw new QRuntimeError("parse", `Unexpected token: operator ${base}`);
     }
 
     let name = base;
     while (this.peek().kind === "operator") {
       const suffix = this.peek().value;
+      if (suffix === "':" && !name.endsWith(":")) {
+        name += this.consume("operator").value;
+        continue;
+      }
       if (suffix === "'" && !name.endsWith("'") && !name.endsWith(":")) {
         name += this.consume("operator").value;
         continue;
@@ -2021,14 +2035,21 @@ export class Parser {
     this.consume("lbracket");
     const args: AstNode[] = [];
     while (this.peek().kind !== "rbracket") {
+      this.skipNewlines();
+      if (this.peek().kind === "rbracket") {
+        break;
+      }
       if (this.peek().kind === "separator") {
         args.push({ kind: "placeholder" });
         this.consume("separator");
+        this.skipNewlines();
         continue;
       }
       args.push(this.parseExpression());
+      this.skipNewlines();
       if (this.peek().kind === "separator") {
         this.consume("separator");
+        this.skipNewlines();
         if (this.peek().kind === "rbracket") {
           args.push({ kind: "placeholder" });
         }
@@ -2040,6 +2061,12 @@ export class Parser {
 
   private skipSeparators() {
     while (this.peek().kind === "newline" || this.peek().kind === "separator") {
+      this.index += 1;
+    }
+  }
+
+  private skipNewlines() {
+    while (this.peek().kind === "newline") {
       this.index += 1;
     }
   }
@@ -2085,7 +2112,7 @@ export class Parser {
     }
     if (this.peek().kind === "identifier" && WORD_DIAD_KEYWORDS.has(this.peek().value)) {
       const op = this.consume("identifier").value;
-      const right = this.parseBinary();
+      const right = this.parseAssignment();
       return { kind: "binary", op, left, right };
     }
     if (this.peek().kind === "operator" && this.peek().value !== ":" && this.peek().value !== ";") {
@@ -2093,7 +2120,7 @@ export class Parser {
       if (["separator", "rparen", "rbracket", "rbrace", "eof"].includes(this.peek().kind)) {
         return { kind: "call", callee: { kind: "identifier", name: op }, args: [left] };
       }
-      const right = this.parseBinary();
+      const right = this.parseAssignment();
       return { kind: "binary", op, left, right };
     }
     return left;
@@ -2124,6 +2151,23 @@ export const tokenize = (source: string): Token[] => {
           previous === "\t" ||
           previous === "\r");
       if (inCommentPosition) {
+        while (i < source.length && source[i] !== "\n") {
+          i += 1;
+        }
+        continue;
+      }
+    }
+
+    if (char === "\\") {
+      const previous = source[i - 1] ?? "\n";
+      const atDirectiveStart =
+        i === 0 ||
+        previous === "\n" ||
+        previous === ";" ||
+        previous === " " ||
+        previous === "\t" ||
+        previous === "\r";
+      if (atDirectiveStart) {
         while (i < source.length && source[i] !== "\n") {
           i += 1;
         }
@@ -2258,7 +2302,9 @@ export const tokenize = (source: string): Token[] => {
       continue;
     }
 
-    const opMatch = source.slice(i).match(/^(<=|>=|<>|\/:|\\:|[+\-*%=<>,!#_~:?/^&|@\\'$])/);
+    const opMatch = source
+      .slice(i)
+      .match(/^(<=|>=|<>|::|\/:|\\:|[+\-*%=<>,!#_~?/^&|@\\$']\:|[+\-*%=<>,!#_~:?/^&|@\\'$])/);
     if (opMatch) {
       tokens.push({ kind: "operator", value: opMatch[1] });
       i += opMatch[1].length;
