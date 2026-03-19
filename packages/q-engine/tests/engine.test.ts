@@ -185,6 +185,39 @@ describe("q engine smoke tests", () => {
     expect(formatValue(session.evaluate("1 2 2 3 union 2 3 4").value)).toBe("1 2 3 4\n");
   });
 
+  it("covers additional reference-card list verbs and iterators", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("avgs 1 2 3 4").value)).toBe("1 1.5 2 2.5\n");
+    expect(formatValue(session.evaluate("fills 1 0N 2 0N 0N 3").value)).toBe("1 1 2 2 2 3\n");
+    expect(formatValue(session.evaluate("next 1 2 3").value)).toBe("2 3 0N\n");
+    expect(formatValue(session.evaluate("prds 1 2 3 4").value)).toBe("1 2 6 24\n");
+    expect(formatValue(session.evaluate("mins 3 1 4 2").value)).toBe("3 1 1 1\n");
+    expect(formatValue(session.evaluate("maxs 3 1 4 2").value)).toBe("3 3 4 4\n");
+    expect(formatValue(session.evaluate("ratios 2 4 8").value)).toBe("2 2 2\n");
+    expect(formatValue(session.evaluate("differ 1 1 2 2 3").value)).toBe("10101b\n");
+    expect(formatValue(session.evaluate("raze (1 2;3 4)").value)).toBe("1 2 3 4\n");
+    expect(formatValue(session.evaluate("group `a`b`a`c").value)).toBe("a| 0 2\nb| ,1\nc| ,3\n");
+    expect(formatValue(session.evaluate("iasc 30 10 20").value)).toBe("1 2 0\n");
+    expect(formatValue(session.evaluate("idesc 30 10 20").value)).toBe("0 2 1\n");
+    expect(formatValue(session.evaluate("\"banana\" ss \"an\"").value)).toBe("1 3\n");
+    expect(
+      formatValue(session.evaluate("\",\" sv (enlist \"a\";enlist \"b\";enlist \"c\")").value)
+    ).toBe("\"a,b,c\"\n");
+    expect(formatValue(session.evaluate("\",\" vs \"a,b,c\"").value)).toBe(",\"a\"\n,\"b\"\n,\"c\"\n");
+    expect(formatValue(session.evaluate("trim \"  hi  \"").value)).toBe("\"hi\"\n");
+    expect(formatValue(session.evaluate("ltrim \"  hi  \"").value)).toBe("\"hi  \"\n");
+    expect(formatValue(session.evaluate("rtrim \"  hi  \"").value)).toBe("\"  hi\"\n");
+    expect(formatValue(session.evaluate("1 0 1 and 1 1 0").value)).toBe("1 0 0\n");
+    expect(formatValue(session.evaluate("1 0 1 or 1 1 0").value)).toBe("1 1 1\n");
+    expect(formatValue(session.evaluate("(+) over 1 2 3 4").value)).toBe("10\n");
+    expect(formatValue(session.evaluate("(+) scan 1 2 3 4").value)).toBe("1 3 6 10\n");
+    expect(formatValue(session.evaluate("(+) prior 1 2 3 4").value)).toBe("1 3 5 7\n");
+    expect(formatValue(session.evaluate("(+\\) 1 2 3 4").value)).toBe("1 3 6 10\n");
+    expect(formatValue(session.evaluate("xexp[2;3]").value)).toBe("8f\n");
+    expect(formatValue(session.evaluate("xbar[5;17]").value)).toBe("15\n");
+    expect(formatValue(session.evaluate("keys `a`b!1 2").value)).toBe("`a`b\n");
+  });
+
   it("supports baked-in complex reductions used by the mandelbrot snippet", () => {
     const session = createSession();
     const program = [

@@ -83,18 +83,25 @@ const MONAD_KEYWORDS = new Set([
   "abs",
   "all",
   "any",
+  "avgs",
   "til",
   "ceiling",
   "cols",
   "count",
   "desc",
+  "differ",
   "exp",
+  "fills",
   "first",
   "last",
   "log",
   "min",
+  "mins",
   "max",
+  "maxs",
   "asc",
+  "iasc",
+  "idesc",
   "asin",
   "atan",
   "sum",
@@ -117,16 +124,25 @@ const MONAD_KEYWORDS = new Set([
   "distinct",
   "attr",
   "flip",
+  "group",
   "key",
+  "keys",
   "lower",
+  "ltrim",
+  "next",
   "upper",
   "prd",
+  "prds",
   "prev",
+  "raze",
+  "ratios",
+  "rtrim",
   "var",
   "svar",
   "dev",
   "sdev",
   "deltas",
+  "trim",
   "sums",
   "string",
   "type",
@@ -143,18 +159,28 @@ const MONAD_KEYWORDS = new Set([
 ]);
 
 const WORD_DIAD_KEYWORDS = new Set([
+  "and",
   "cross",
-  "xlog",
   "cut",
-  "xcol",
   "in",
-  "rotate",
-  "sublist",
-  "like",
-  "within",
   "except",
   "inter",
-  "union"
+  "like",
+  "or",
+  "over",
+  "prior",
+  "rotate",
+  "scan",
+  "ss",
+  "sublist",
+  "sv",
+  "union",
+  "vs",
+  "within",
+  "xbar",
+  "xcol",
+  "xexp",
+  "xlog"
 ]);
 const Q_X10_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const Q_X12_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -785,10 +811,28 @@ export class Session {
         }
         return applyValue(left, args);
       }
+      case "\\":
+        return scanValue(this, left, right);
       case "in":
         return inValue(left, right);
+      case "and":
+        return mapBinary(left, right, (a, b) => minPair(a, b));
       case "like":
         return likeValue(left, right);
+      case "or":
+        return mapBinary(left, right, (a, b) => maxPair(a, b));
+      case "over":
+        return reduceValue(this, left, right);
+      case "prior":
+        return priorValue(this, left, right);
+      case "scan":
+        return scanValue(this, left, right);
+      case "ss":
+        return ssValue(left, right);
+      case "sv":
+        return svValue(left, right);
+      case "vs":
+        return vsValue(left, right);
       case "cross":
         return crossValue(left, right);
       case "within":
@@ -807,6 +851,10 @@ export class Session {
         return sublistValue(left, right);
       case "xcol":
         return xcolValue(left, right);
+      case "xbar":
+        return xbarValue(left, right);
+      case "xexp":
+        return mapBinary(left, right, (a, b) => qFloat(Math.pow(toNumber(a), toNumber(b))));
       case "xlog":
         return mapBinary(left, right, (a, b) => qFloat(Math.log(toNumber(b)) / Math.log(toNumber(a))));
       case "|":
@@ -860,6 +908,7 @@ export class Session {
     register("abs", 1, (_, [arg]) => absValue(arg));
     register("all", 1, (_, [arg]) => allValue(arg));
     register("any", 1, (_, [arg]) => anyValue(arg));
+    register("avgs", 1, (_, [arg]) => avgsValue(arg));
     register("til", 1, (_, [arg]) => {
       const count = toNumber(arg);
       return qList(Array.from({ length: count }, (_, i) => qInt(i)), true);
@@ -868,15 +917,21 @@ export class Session {
     register("cols", 1, (_, [arg]) => colsValue(arg));
     register("count", 1, (_, [arg]) => qInt(countValue(arg)));
     register("desc", 1, (_, [arg]) => descValue(arg));
+    register("differ", 1, (_, [arg]) => differValue(arg));
     register("exp", 1, (_, [arg]) => numericUnary(arg, Math.exp));
+    register("fills", 1, (_, [arg]) => fillsValue(arg));
     register("first", 1, (_, [arg]) => firstValue(arg));
     register("last", 1, (_, [arg]) => lastValue(arg));
     register("log", 1, (_, [arg]) => numericUnary(arg, Math.log));
+    register("iasc", 1, (_, [arg]) => gradeValue(arg, true));
+    register("idesc", 1, (_, [arg]) => gradeValue(arg, false));
     register("asc", 1, (_, [arg]) => ascValue(arg));
     register("asin", 1, (_, [arg]) => unaryNumeric(arg, Math.asin));
     register("atan", 1, (_, [arg]) => unaryNumeric(arg, Math.atan));
     register("min", 1, (_, [arg]) => minValue(arg));
+    register("mins", 1, (_, [arg]) => minsValue(arg));
     register("max", 1, (_, [arg]) => maxValue(arg));
+    register("maxs", 1, (_, [arg]) => maxsValue(arg));
     register("sum", 1, (_, [arg]) => sumValue(arg));
     register("avg", 1, (_, [arg]) => avgValue(arg));
     register("asin", 1, (_, [arg]) => numericUnary(arg, Math.asin));
@@ -897,11 +952,19 @@ export class Session {
     register("distinct", 1, (_, [arg]) => distinctValue(arg));
     register("attr", 1, (_, [arg]) => attrValue(arg));
     register("flip", 1, (_, [arg]) => flipValue(arg));
+    register("group", 1, (_, [arg]) => groupValue(arg));
     register("key", 1, (session, [arg]) => session.keyValue(arg));
+    register("keys", 1, (session, [arg]) => session.keyValue(arg));
     register("lower", 1, (_, [arg]) => lowerValue(arg));
+    register("ltrim", 1, (_, [arg]) => trimStringValue(arg, "left"));
+    register("next", 1, (_, [arg]) => nextValue(arg));
     register("upper", 1, (_, [arg]) => upperValue(arg));
     register("prd", 1, (_, [arg]) => productValue(arg));
+    register("prds", 1, (_, [arg]) => prdsValue(arg));
     register("prev", 1, (_, [arg]) => prevValue(arg));
+    register("raze", 1, (_, [arg]) => razeValue(arg));
+    register("ratios", 1, (_, [arg]) => ratiosValue(arg));
+    register("rtrim", 1, (_, [arg]) => trimStringValue(arg, "right"));
     register("var", 1, (_, [arg]) => varianceValue(arg, false));
     register("svar", 1, (_, [arg]) => varianceValue(arg, true));
     register("dev", 1, (_, [arg]) => deviationValue(arg, false));
@@ -920,6 +983,7 @@ export class Session {
       return qString(formatValue(arg, { trailingNewline: false }));
     });
     register("sums", 1, (_, [arg]) => sumsValue(arg));
+    register("trim", 1, (_, [arg]) => trimStringValue(arg, "both"));
     register("type", 1, (_, [arg]) => qShort(qTypeNumber(arg)));
     register("where", 1, (_, [arg]) => whereValue(arg));
     register("value", 1, (_, [arg]) => arg);
@@ -1130,10 +1194,22 @@ export class Session {
       return qString(`${formatFloat(value.re)} ${sign} ${formatFloat(Math.abs(value.im))}i`);
     });
     register("cut", 2, (_, [left, right]) => cutValue(left, right));
+    register("and", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
     register("cross", 2, (_, [left, right]) => crossValue(left, right));
+    register("over", 2, (session, [callable, arg]) => reduceValue(session, callable, arg));
+    register("or", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
+    register("prior", 2, (session, [callable, arg]) => priorValue(session, callable, arg));
     register("rotate", 2, (_, [left, right]) => rotateValue(left, right));
+    register("scan", 2, (session, [callable, arg]) => scanValue(session, callable, arg));
+    register("ss", 2, (_, [left, right]) => ssValue(left, right));
     register("sublist", 2, (_, [left, right]) => sublistValue(left, right));
+    register("sv", 2, (_, [left, right]) => svValue(left, right));
+    register("vs", 2, (_, [left, right]) => vsValue(left, right));
+    register("xbar", 2, (_, [left, right]) => xbarValue(left, right));
     register("xcol", 2, (_, [left, right]) => xcolValue(left, right));
+    register("xexp", 2, (_, [left, right]) =>
+      mapBinary(left, right, (a, b) => qFloat(Math.pow(toNumber(a), toNumber(b))))
+    );
     register("like", 2, (_, [left, right]) => likeValue(left, right));
     register("within", 2, (_, [left, right]) => withinValue(left, right));
     register("except", 2, (_, [left, right]) => exceptValue(left, right));
@@ -1178,6 +1254,7 @@ export class Session {
     register("|", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
     register("&", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
     register("/", 2, (session, [callable, arg]) => reduceValue(session, callable, arg));
+    register("\\", 2, (session, [callable, arg]) => scanValue(session, callable, arg));
   }
 
   private seedNamespaces() {
@@ -1328,18 +1405,25 @@ export const listBuiltins = () => ({
     "abs",
     "all",
     "any",
+    "avgs",
     "til",
     "ceiling",
     "cols",
     "count",
     "desc",
+    "differ",
     "exp",
+    "fills",
     "first",
     "last",
     "log",
     "min",
+    "mins",
     "max",
+    "maxs",
     "asc",
+    "iasc",
+    "idesc",
     "asin",
     "atan",
     "sum",
@@ -1362,17 +1446,26 @@ export const listBuiltins = () => ({
     "distinct",
     "attr",
     "flip",
+    "group",
     "key",
+    "keys",
     "lower",
+    "ltrim",
+    "next",
     "upper",
     "cut",
     "prd",
+    "prds",
     "prev",
+    "raze",
+    "ratios",
+    "rtrim",
     "var",
     "svar",
     "dev",
     "sdev",
     "deltas",
+    "trim",
     "sums",
     "string",
     "type",
@@ -1408,15 +1501,25 @@ export const listBuiltins = () => ({
     "?",
     "$",
     "@",
+    "and",
     "in",
     "like",
     "|",
     "&",
     "cross",
+    "or",
+    "over",
+    "prior",
+    "scan",
+    "ss",
+    "sv",
+    "vs",
     "within",
     "except",
     "inter",
     "union",
+    "xbar",
+    "xexp",
     "xlog",
     "cut",
     "xcol",
@@ -2709,11 +2812,41 @@ const avgValue = (value: QValue): QValue => {
   return qFloat(toNumber(total) / items.length);
 };
 
+const avgsValue = (value: QValue): QValue => {
+  const list = asList(value);
+  let running: QValue = qInt(0);
+  let count = 0;
+  return qList(
+    list.items.map((item) => {
+      if (!isNullish(item)) {
+        running = add(running, item);
+        count += 1;
+      }
+      return count === 0 ? qFloat(Number.NaN, "null") : qFloat(toNumber(running) / count);
+    }),
+    false
+  );
+};
+
 const productValue = (value: QValue): QValue => {
   if (value.kind !== "list") {
     return value;
   }
   return value.items.reduce((acc, item) => multiply(acc, item), qInt(1));
+};
+
+const prdsValue = (value: QValue): QValue => {
+  const list = asList(value);
+  let running: QValue = qInt(1);
+  return qList(
+    list.items.map((item) => {
+      if (!isNullish(item)) {
+        running = multiply(running, item);
+      }
+      return running;
+    }),
+    list.homogeneous ?? false
+  );
 };
 
 const prevValue = (value: QValue): QValue => {
@@ -2730,6 +2863,20 @@ const prevValue = (value: QValue): QValue => {
   );
 };
 
+const nextValue = (value: QValue): QValue => {
+  if (value.kind === "string") {
+    return qString(`${value.value.slice(1)} `);
+  }
+  const list = asList(value);
+  if (list.items.length === 0) {
+    return qList([], list.homogeneous ?? false);
+  }
+  return qList(
+    [...list.items.slice(1), nullLike(list.items.at(-1))],
+    list.homogeneous ?? false
+  );
+};
+
 const sumsValue = (value: QValue): QValue => {
   const list = asList(value);
   let running: QValue = qInt(0);
@@ -2739,6 +2886,51 @@ const sumsValue = (value: QValue): QValue => {
       return running;
     }),
     list.homogeneous ?? false
+  );
+};
+
+const minsValue = (value: QValue): QValue => {
+  const list = asList(value);
+  let running: QValue | null = null;
+  return qList(
+    list.items.map((item) => {
+      if (!isNullish(item)) {
+        running = running === null ? item : minPair(running, item);
+      }
+      return running ?? nullLike(item);
+    }),
+    list.homogeneous ?? false
+  );
+};
+
+const maxsValue = (value: QValue): QValue => {
+  const list = asList(value);
+  let running: QValue | null = null;
+  return qList(
+    list.items.map((item) => {
+      if (!isNullish(item)) {
+        running = running === null ? item : maxPair(running, item);
+      }
+      return running ?? nullLike(item);
+    }),
+    list.homogeneous ?? false
+  );
+};
+
+const ratiosValue = (value: QValue): QValue => {
+  const list = asList(value);
+  return qList(
+    list.items.map((item, index) => {
+      if (isNullish(item)) {
+        return qFloat(Number.NaN, "null");
+      }
+      if (index === 0) {
+        return qFloat(toNumber(item));
+      }
+      const previous = list.items[index - 1] ?? qNull();
+      return isNullish(previous) ? qFloat(Number.NaN, "null") : divide(item, previous);
+    }),
+    false
   );
 };
 
@@ -2789,6 +2981,31 @@ const reverseValue = (value: QValue): QValue => {
     return qList([...value.items].reverse(), value.homogeneous ?? false);
   }
   return value;
+};
+
+const differValue = (value: QValue): QValue => {
+  const list = asList(value);
+  return qList(
+    list.items.map((item, index) =>
+      qBool(index === 0 ? true : !equals(item, list.items[index - 1] ?? qNull()))
+    ),
+    true
+  );
+};
+
+const fillsValue = (value: QValue): QValue => {
+  const list = asList(value);
+  let previous: QValue | null = null;
+  return qList(
+    list.items.map((item) => {
+      if (isNullish(item)) {
+        return previous ?? item;
+      }
+      previous = item;
+      return item;
+    }),
+    list.homogeneous ?? false
+  );
 };
 
 const reciprocalValue = (value: QValue): QValue => {
@@ -3137,6 +3354,15 @@ const inValue = (left: QValue, right: QValue): QValue => {
   return contains(left);
 };
 
+const gradeValue = (value: QValue, ascending: boolean): QValue => {
+  const items = asSequenceItems(value).map((item, index) => ({ item, index }));
+  items.sort((left, right) => {
+    const compared = compare(left.item, right.item);
+    return compared === 0 ? left.index - right.index : ascending ? compared : -compared;
+  });
+  return qList(items.map(({ index }) => qInt(index)), true);
+};
+
 const asSequenceItems = (value: QValue): QValue[] => {
   if (value.kind === "list") {
     return value.items;
@@ -3177,6 +3403,22 @@ const crossValue = (left: QValue, right: QValue): QValue =>
     false
   );
 
+const groupValue = (value: QValue): QValue => {
+  const buckets: { key: QValue; positions: QValue[] }[] = [];
+  asSequenceItems(value).forEach((item, index) => {
+    const existing = buckets.find((candidate) => equals(candidate.key, item));
+    if (existing) {
+      existing.positions.push(qInt(index));
+      return;
+    }
+    buckets.push({ key: item, positions: [qInt(index)] });
+  });
+  return qDictionary(
+    buckets.map(({ key }) => key),
+    buckets.map(({ positions }) => qList(positions, true))
+  );
+};
+
 const reduceValue = (session: Session, callable: QValue, value: QValue): QValue => {
   const items = asSequenceItems(value);
   if (items.length === 0) {
@@ -3187,6 +3429,38 @@ const reduceValue = (session: Session, callable: QValue, value: QValue): QValue 
     result = session.invoke(callable, [result, item]);
   }
   return result;
+};
+
+const scanValue = (session: Session, callable: QValue, value: QValue): QValue => {
+  const items = asSequenceItems(value);
+  if (items.length === 0) {
+    return qList([], false);
+  }
+  let result = items[0]!;
+  const outputs = [result];
+  for (const item of items.slice(1)) {
+    result = session.invoke(callable, [result, item]);
+    outputs.push(result);
+  }
+  return qList(outputs, false);
+};
+
+const priorValue = (session: Session, callable: QValue, value: QValue): QValue => {
+  if (value.kind === "string") {
+    const chars = [...value.value].map((char) => qString(char));
+    const result = priorValue(session, callable, qList(chars, true));
+    return rebuildSequence(value, asSequenceItems(result));
+  }
+  const list = asList(value);
+  if (list.items.length === 0) {
+    return qList([], list.homogeneous ?? false);
+  }
+  return qList(
+    list.items.map((item, index) =>
+      index === 0 ? item : session.invoke(callable, [list.items[index - 1] ?? qNull(), item])
+    ),
+    false
+  );
 };
 
 const patternToRegex = (pattern: string) =>
@@ -3211,6 +3485,60 @@ const likeValue = (left: QValue, right: QValue): QValue =>
     }
     return qBool(patternToRegex(pattern.value).test(value.value));
   });
+
+const ssValue = (left: QValue, right: QValue): QValue => {
+  if (left.kind !== "string" || right.kind !== "string") {
+    throw new QRuntimeError("type", "ss expects string arguments");
+  }
+  if (right.value.length === 0) {
+    return qList([], true);
+  }
+  const positions: QValue[] = [];
+  let index = 0;
+  while (index <= left.value.length - right.value.length) {
+    if (left.value.slice(index, index + right.value.length) === right.value) {
+      positions.push(qInt(index));
+      index += right.value.length;
+      continue;
+    }
+    index += 1;
+  }
+  return qList(positions, true);
+};
+
+const stringLikeValue = (value: QValue): string | null => {
+  if (value.kind === "string") {
+    return value.value;
+  }
+  if (value.kind === "symbol") {
+    return value.value;
+  }
+  if (value.kind === "list" && value.items.every((item) => item.kind === "string")) {
+    return value.items.map((item) => (item as QString).value).join("");
+  }
+  return null;
+};
+
+const svValue = (left: QValue, right: QValue): QValue => {
+  if (left.kind !== "string" || right.kind !== "list") {
+    throw new QRuntimeError("type", "sv expects a string separator and a list of strings");
+  }
+  const parts = right.items.map(stringLikeValue);
+  if (parts.some((part) => part === null)) {
+    throw new QRuntimeError("type", "sv expects a list of strings");
+  }
+  return qString((parts as string[]).join(left.value));
+};
+
+const vsValue = (left: QValue, right: QValue): QValue => {
+  if (left.kind !== "string" || right.kind !== "string") {
+    throw new QRuntimeError("type", "vs expects string arguments");
+  }
+  if (left.value === "") {
+    return qList([qString(right.value)], false);
+  }
+  return qList(right.value.split(left.value).map((part) => qString(part)), false);
+};
 
 const resolveWithinBound = (bound: QValue, index: number, length: number): QValue => {
   if (bound.kind !== "list") {
@@ -3294,6 +3622,30 @@ const upperValue = (value: QValue): QValue => {
     return qList(value.items.map(upperValue), value.homogeneous ?? false);
   }
   return value;
+};
+
+const trimStringValue = (value: QValue, mode: "left" | "right" | "both"): QValue => {
+  if (value.kind === "list") {
+    return qList(value.items.map((item) => trimStringValue(item, mode)), value.homogeneous ?? false);
+  }
+  if (value.kind === "symbol") {
+    const trimmed = trimStringValue(qString(value.value), mode);
+    if (trimmed.kind !== "string") {
+      throw new QRuntimeError("type", "trim expects strings or symbols");
+    }
+    return qSymbol(trimmed.value);
+  }
+  if (value.kind !== "string") {
+    throw new QRuntimeError("type", "trim expects strings or symbols");
+  }
+  switch (mode) {
+    case "left":
+      return qString(value.value.replace(/^\s+/, ""));
+    case "right":
+      return qString(value.value.replace(/\s+$/, ""));
+    case "both":
+      return qString(value.value.trim());
+  }
 };
 
 const nullValue = (value: QValue): QValue => {
@@ -3448,6 +3800,16 @@ const concatValues = (left: QValue, right: QValue): QValue => {
     return qList([left, ...right.items], false);
   }
   return qList([left, right]);
+};
+
+const razeValue = (value: QValue): QValue => {
+  if (value.kind !== "list") {
+    return value;
+  }
+  if (value.items.length === 0) {
+    return qList([]);
+  }
+  return value.items.reduce((acc, item) => concatValues(acc, item));
 };
 
 const takeValue = (left: QValue, right: QValue): QValue => {
@@ -3607,6 +3969,15 @@ const castValue = (left: QValue, right: QValue): QValue => {
       throw new QRuntimeError("nyi", `Cast ${castName}$ is not implemented yet`);
   }
 };
+
+const xbarValue = (left: QValue, right: QValue): QValue =>
+  mapBinary(left, right, (step, value) => {
+    const interval = toNumber(step);
+    if (interval === 0) {
+      throw new QRuntimeError("domain", "xbar expects a non-zero interval");
+    }
+    return numeric(Math.floor(toNumber(value) / interval) * interval, !Number.isInteger(interval));
+  });
 
 const castSymbolValue = (value: QValue): QValue => {
   if (value.kind === "string") {
