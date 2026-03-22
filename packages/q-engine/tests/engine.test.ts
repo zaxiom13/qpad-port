@@ -435,6 +435,8 @@ describe("q engine smoke tests", () => {
     const session = createSession();
     expect(session.evaluate("show 1 2 3").formatted).toBe("1 2 3\n");
     expect(session.evaluate("v:10 20 30; show v; v[1]").formatted).toBe("10 20 30\n20\n");
+    expect(session.evaluate("f:{show x; x+1}; f 42").formatted).toBe("42\n43\n");
+    expect(session.evaluate("f:{show abs(120; -20 30); x}; f 99").formatted).toBe("120\n20 30\n99\n");
     expect(session.evaluate("show 1 2 3               / values").formatted).toBe("1 2 3\n");
     expect(session.evaluate("r:({x+y}/) each (1 2 3;4 5 6); r").formatted).toBe("6 15\n");
     expect(session.evaluate("r:({x+y} /) each (1 2 3;4 5 6); r").formatted).toBe("6 15\n");

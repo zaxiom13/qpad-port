@@ -401,7 +401,7 @@ export class Session {
   }
 
   emit(value: QValue) {
-    this.outputBuffer += formatValue(value);
+    this.root.outputBuffer += formatValue(value);
   }
 
   private eval(node: AstNode): QValue {
