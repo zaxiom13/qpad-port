@@ -202,7 +202,8 @@ export const qMonarchSyntax = {
     ],
     whitespace: [
       [/[ \t\r\n]+/, ""],
-      [/\/[^\n]*/, "comment"]
+      [/(?:(?<=^)|(?<=[;\n]))[ \t]*\/(?!:)[^\n]*/, "comment"],
+      [/(?<=[ \t])\/(?=[ \t])(?!:)[^\n]*/, "comment"]
     ],
     string: [
       [/[^\\"]+/, "string"],

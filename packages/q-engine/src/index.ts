@@ -37,6 +37,7 @@ export type AstNode =
   | { kind: "program"; statements: AstNode[]; source: string }
   | { kind: "return"; value: AstNode }
   | { kind: "assign"; name: string; value: AstNode }
+  | { kind: "assignGlobal"; name: string; value: AstNode }
   | { kind: "identifier"; name: string }
   | { kind: "number"; value: string }
   | { kind: "date"; value: string }
@@ -67,6 +68,12 @@ export type AstNode =
       where: AstNode | null;
     }
   | { kind: "delete"; columns: string[] | null; source: AstNode; where: AstNode | null }
+  | { kind: "if"; condition: AstNode; body: AstNode[] }
+  | {
+      kind: "cond";
+      branches: { condition: AstNode; value: AstNode }[];
+      elseValue: AstNode | null;
+    }
   | { kind: "each"; callee: AstNode; arg: AstNode }
   | { kind: "eachCall"; callee: AstNode; args: AstNode[] }
   | { kind: "binary"; op: string; left: AstNode; right: AstNode }
@@ -149,6 +156,8 @@ const MONAD_KEYWORDS = new Set([
   "where",
   "value",
   "show",
+  "+/",
+  "+\\",
   "system",
   "hopen",
   "hclose",
@@ -162,10 +171,12 @@ const WORD_DIAD_KEYWORDS = new Set([
   "and",
   "cross",
   "cut",
+  "div",
   "in",
   "except",
   "inter",
   "like",
+  "mod",
   "or",
   "over",
   "prior",
@@ -255,6 +266,7 @@ export class QRuntimeError extends Error {
 }
 
 type BuiltinImpl = (session: Session, args: QValue[]) => QValue;
+type TemporalType = "date" | "month" | "minute" | "second" | "time" | "timespan";
 
 interface BuiltinEntry extends QBuiltin {
   impl: BuiltinImpl;
@@ -268,9 +280,10 @@ export class Session {
   private readonly env = new Map<string, QValue>();
   private readonly builtins = new Map<string, BuiltinEntry>();
   private readonly host: Required<HostAdapter>;
+  private readonly root: Session;
   private outputBuffer = "";
 
-  constructor(host: HostAdapter = {}) {
+  constructor(host: HostAdapter = {}, root?: Session) {
     this.host = {
       now: host.now ?? (() => new Date()),
       timezone: host.timezone ?? (() => Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -282,6 +295,7 @@ export class Session {
           throw new QRuntimeError("nyi", `${name} is not available in the browser host`);
         })
     };
+    this.root = root ?? this;
 
     this.installBuiltins();
     this.seedNamespaces();
@@ -313,14 +327,20 @@ export class Session {
       return value;
     }
     const builtin = this.builtins.get(name);
-    if (!builtin) {
-      throw new QRuntimeError("name", `Unknown identifier: ${name}`);
+    if (builtin) {
+      return {
+        kind: "builtin",
+        name: builtin.name,
+        arity: builtin.arity
+      };
     }
-    return {
-      kind: "builtin",
-      name: builtin.name,
-      arity: builtin.arity
-    };
+
+    const derived = name.match(/^(.*)([\/\\])$/);
+    if (derived && derived[1]) {
+      return qProjection(this.get(derived[2]!), [this.get(derived[1]!)], 2);
+    }
+
+    throw new QRuntimeError("name", `Unknown identifier: ${name}`);
   }
 
   assign(name: string, value: QValue): QValue {
@@ -331,6 +351,11 @@ export class Session {
 
     const parts = name.replace(/^\./, "").split(".");
     const last = parts.pop()!;
+    if (parts.length === 0) {
+      this.env.set(name.startsWith(".") ? `.${last}` : last, value);
+      return value;
+    }
+
     let current =
       this.env.get(`.${parts[0]}`) ??
       this.env.get(parts[0]);
@@ -367,6 +392,14 @@ export class Session {
     return value;
   }
 
+  assignGlobal(name: string, value: QValue): QValue {
+    this.root.assign(name, value);
+    if (this !== this.root) {
+      this.assign(name, value);
+    }
+    return value;
+  }
+
   emit(value: QValue) {
     this.outputBuffer += formatValue(value);
   }
@@ -382,6 +415,8 @@ export class Session {
       }
       case "assign":
         return this.assign(node.name, this.eval(node.value));
+      case "assignGlobal":
+        return this.assignGlobal(node.name, this.eval(node.value));
       case "return":
         return this.eval(node.value);
       case "identifier":
@@ -389,7 +424,7 @@ export class Session {
       case "number":
         return parseNumericLiteral(node.value);
       case "date":
-        return qDate(node.value);
+        return parseTemporalLiteral(node.value);
       case "boolean":
         return qBool(node.value);
       case "string":
@@ -400,8 +435,23 @@ export class Session {
         return qNull();
       case "placeholder":
         return qNull();
-      case "vector":
-        return qList(node.items.map((item) => this.eval(item)), true);
+      case "vector": {
+        const items = node.items.map((item) => this.eval(item));
+        if (
+          node.items.length > 0 &&
+          node.items.every((item) => item.kind === "number") &&
+          items.every((item) => item.kind === "number")
+        ) {
+          const lastRaw = node.items[node.items.length - 1]!.value;
+          if (lastRaw.endsWith("i")) {
+            return qList(items.map((item) => qInt(toNumber(item))), true, "explicitInt");
+          }
+          if (lastRaw.endsWith("f")) {
+            return qList(items.map((item) => qFloat(toNumber(item))), true, "explicitFloat");
+          }
+        }
+        return qList(items, true);
+      }
       case "list":
         return qList(
           node.items.reduceRight<QValue[]>((items, item) => {
@@ -433,6 +483,15 @@ export class Session {
         return this.evalUpdate(node);
       case "delete":
         return this.evalDelete(node);
+      case "if":
+        return isTruthy(this.eval(node.condition)) ? this.evalBranchBody(node.body) : qNull();
+      case "cond":
+        for (const branch of node.branches) {
+          if (isTruthy(this.eval(branch.condition))) {
+            return this.eval(branch.value);
+          }
+        }
+        return node.elseValue ? this.eval(node.elseValue) : qNull();
       case "group":
         return this.eval(node.value);
       case "each": {
@@ -567,7 +626,14 @@ export class Session {
 
   private invokeProjection(projection: QProjection, args: QValue[]): QValue {
     const boundCount = projection.args.filter((value) => value !== null).length;
-    if (projection.arity - boundCount === 1 && args.length > 1) {
+    const isDerivedAdverbProjection =
+      projection.target.kind === "builtin" &&
+      (projection.target.name === "/" ||
+        projection.target.name === "\\" ||
+        projection.target.name === "over" ||
+        projection.target.name === "scan") &&
+      boundCount === 1;
+    if (projection.arity - boundCount === 1 && args.length > 1 && !isDerivedAdverbProjection) {
       args = [qList(args, args.every((arg) => arg.kind === args[0]?.kind))];
     }
 
@@ -606,7 +672,7 @@ export class Session {
       return qProjection(lambda, [...args], arity);
     }
 
-    const child = new Session(this.host);
+    const child = new Session(this.host, this.root);
     for (const [key, value] of this.env.entries()) {
       child.assign(key, value);
     }
@@ -619,13 +685,7 @@ export class Session {
     let last: QValue = qNull();
     for (const statement of lambda.body) {
       if (statement.kind === "return") {
-        const result = child.eval(statement.value);
-        for (const [key, value] of child.env.entries()) {
-          if (!key.startsWith(".Q") && !key.startsWith(".z")) {
-            this.env.set(key, value);
-          }
-        }
-        return result;
+        return child.eval(statement.value);
       }
       last = child.eval(statement);
     }
@@ -634,7 +694,7 @@ export class Session {
   }
 
   private createTableContext(table: QTable, positions?: number[]) {
-    const child = new Session(this.host);
+    const child = new Session(this.host, this.root);
     for (const [key, value] of this.env.entries()) {
       child.assign(key, value);
     }
@@ -765,6 +825,14 @@ export class Session {
     return selectTableRows(source, keep);
   }
 
+  private evalBranchBody(body: AstNode[]) {
+    let last: QValue = qNull();
+    for (const statement of body) {
+      last = this.eval(statement);
+    }
+    return last;
+  }
+
   private evalBinary(op: string, left: QValue, right: QValue): QValue {
     switch (op) {
       case "+":
@@ -813,6 +881,12 @@ export class Session {
       }
       case "\\":
         return scanValue(this, left, right);
+      case "+/":
+        return reduceValueWithSeed(this, this.get("+"), left, right);
+      case "+\\":
+        return scanValueWithSeed(this, this.get("+"), left, right);
+      case ",/":
+        return concatValues(left, right);
       case "in":
         return inValue(left, right);
       case "and":
@@ -845,6 +919,10 @@ export class Session {
         return unionValue(left, right);
       case "cut":
         return cutValue(left, right);
+      case "div":
+        return mapBinary(left, right, (a, b) => divValue(a, b));
+      case "mod":
+        return mapBinary(left, right, (a, b) => modValue(a, b));
       case "rotate":
         return rotateValue(left, right);
       case "sublist":
@@ -962,7 +1040,12 @@ export class Session {
     register("prd", 1, (_, [arg]) => productValue(arg));
     register("prds", 1, (_, [arg]) => prdsValue(arg));
     register("prev", 1, (_, [arg]) => prevValue(arg));
-    register("raze", 1, (_, [arg]) => razeValue(arg));
+    register("raze", 1, (_, args) => {
+      if (args.length === 1) {
+        return razeValue(args[0]!);
+      }
+      return args.slice(1).reduce((acc, item) => razeValue(qList([acc, item])), args[0]!);
+    });
     register("ratios", 1, (_, [arg]) => ratiosValue(arg));
     register("rtrim", 1, (_, [arg]) => trimStringValue(arg, "right"));
     register("var", 1, (_, [arg]) => varianceValue(arg, false));
@@ -1196,11 +1279,11 @@ export class Session {
     register("cut", 2, (_, [left, right]) => cutValue(left, right));
     register("and", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
     register("cross", 2, (_, [left, right]) => crossValue(left, right));
-    register("over", 2, (session, [callable, arg]) => reduceValue(session, callable, arg));
+    register("over", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
     register("or", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
     register("prior", 2, (session, [callable, arg]) => priorValue(session, callable, arg));
     register("rotate", 2, (_, [left, right]) => rotateValue(left, right));
-    register("scan", 2, (session, [callable, arg]) => scanValue(session, callable, arg));
+    register("scan", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
     register("ss", 2, (_, [left, right]) => ssValue(left, right));
     register("sublist", 2, (_, [left, right]) => sublistValue(left, right));
     register("sv", 2, (_, [left, right]) => svValue(left, right));
@@ -1218,6 +1301,36 @@ export class Session {
     register("xlog", 2, (_, [left, right]) =>
       mapBinary(left, right, (a, b) => qFloat(Math.log(toNumber(b)) / Math.log(toNumber(a))))
     );
+    register(",/", 1, (session, args) => {
+      if (args.length === 1) {
+        return razeValue(args[0]!);
+      }
+      const items =
+        args.length === 2 && args[1]?.kind === "list"
+          ? [args[0]!, ...args[1].items]
+          : args;
+      return items.slice(1).reduce((acc, item) => session.invoke(session.get(","), [acc, item]), items[0]!);
+    });
+    register("+/", 1, (session, args) => {
+      const plus = session.get("+");
+      if (args.length === 1) {
+        return reduceValue(session, plus, args[0]!);
+      }
+      if (args.length === 2 && args[1]?.kind === "list") {
+        return reduceValue(session, plus, args[1], args[0]!);
+      }
+      return reduceValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
+    });
+    register("+\\", 1, (session, args) => {
+      const plus = session.get("+");
+      if (args.length === 1) {
+        return scanValue(session, plus, args[0]!);
+      }
+      if (args.length === 2 && args[1]?.kind === "list") {
+        return scanValue(session, plus, args[1], args[0]!);
+      }
+      return scanValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
+    });
 
     register("+", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => add(a, b)));
     register("-", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => subtract(a, b)));
@@ -1253,8 +1366,8 @@ export class Session {
     register("$", 2, (_, [left, right]) => castValue(left, right));
     register("|", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
     register("&", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
-    register("/", 2, (session, [callable, arg]) => reduceValue(session, callable, arg));
-    register("\\", 2, (session, [callable, arg]) => scanValue(session, callable, arg));
+    register("/", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
+    register("\\", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
   }
 
   private seedNamespaces() {
@@ -1537,6 +1650,7 @@ export class Parser {
   private index = 0;
   private readonly tokens: Token[];
   private readonly stopIdentifiers: Set<string>[] = [];
+  private readonly stopOperators: Set<string>[] = [];
 
   constructor(tokens: Token[]) {
     this.tokens = tokens;
@@ -1628,7 +1742,9 @@ export class Parser {
   private parseSelectColumns() {
     const columns: { name: string | null; value: AstNode }[] = [];
     while (!this.match("eof")) {
-      const value = this.withStopIdentifiers(["from"], () => this.parseAssignment());
+      const value = this.withStopOperators([","], () =>
+        this.withStopIdentifiers(["from"], () => this.parseAssignment())
+      );
       columns.push(value.kind === "assign" ? { name: value.name, value: value.value } : { name: null, value });
       if (this.peek().kind === "operator" && this.peek().value === ",") {
         this.consume("operator", ",");
@@ -1642,7 +1758,9 @@ export class Parser {
   private parseUpdateClauses() {
     const updates: { name: string; value: AstNode }[] = [];
     while (!this.match("eof")) {
-      const update = this.withStopIdentifiers(["from"], () => this.parseAssignment());
+      const update = this.withStopOperators([","], () =>
+        this.withStopIdentifiers(["from"], () => this.parseAssignment())
+      );
       if (update.kind !== "assign") {
         throw new QRuntimeError("parse", "update expects assignment clauses");
       }
@@ -1689,11 +1807,33 @@ export class Parser {
     }
   }
 
+  private withStopOperators<T>(stops: string[], fn: () => T): T {
+    this.stopOperators.push(new Set(stops));
+    try {
+      return fn();
+    } finally {
+      this.stopOperators.pop();
+    }
+  }
+
   private isStopIdentifier(token: Token) {
     return token.kind === "identifier" && this.stopIdentifiers.some((stops) => stops.has(token.value));
   }
 
+  private isStopOperator(token: Token) {
+    return token.kind === "operator" && this.stopOperators.some((stops) => stops.has(token.value));
+  }
+
   private parseAssignment(): AstNode {
+    if (
+      this.peek().kind === "identifier" &&
+      this.peek(1).kind === "operator" &&
+      this.peek(1).value === "::"
+    ) {
+      const name = this.consume("identifier").value;
+      this.consume("operator", "::");
+      return { kind: "assignGlobal", name, value: this.parseExpression() };
+    }
     if (
       this.peek().kind === "identifier" &&
       this.peek(1).kind === "operator" &&
@@ -1701,7 +1841,25 @@ export class Parser {
     ) {
       const name = this.consume("identifier").value;
       this.consume("operator", ":");
-      return { kind: "assign", name, value: this.parseAssignment() };
+      return { kind: "assign", name, value: this.parseExpression() };
+    }
+    if (
+      this.peek().kind === "identifier" &&
+      this.peek(1).kind === "operator" &&
+      isAssignmentOperator(this.peek(1).value)
+    ) {
+      const name = this.consume("identifier").value;
+      const op = this.consume("operator").value;
+      return {
+        kind: "assign",
+        name,
+        value: {
+          kind: "binary",
+          op: op.slice(0, -1),
+          left: { kind: "identifier", name },
+          right: this.parseExpression()
+        }
+      };
     }
     return this.parseBinary();
   }
@@ -1716,6 +1874,14 @@ export class Parser {
     while (true) {
       if (this.peek().kind === "lbracket") {
         const args = this.parseBracketArgs();
+        if (callee.kind === "identifier") {
+          if (callee.name === "if") {
+            return this.buildIfExpression(args);
+          }
+          if (callee.name === "$") {
+            return this.buildCondExpression(args);
+          }
+        }
         callee = { kind: "call", callee, args };
         continue;
       }
@@ -1737,17 +1903,36 @@ export class Parser {
       return { kind: "each", callee, arg: this.parseAssignment() };
     }
 
+    const monadName =
+      callee.kind === "identifier"
+        ? callee.name
+        : callee.kind === "group" &&
+            callee.value.kind === "identifier" &&
+            (callee.value.name === "+/" || callee.value.name === "+\\")
+          ? callee.value.name
+          : null;
+
     if (
-      callee.kind === "identifier" &&
-      MONAD_KEYWORDS.has(callee.name) &&
+      monadName !== null &&
+      MONAD_KEYWORDS.has(monadName) &&
       this.canStartPrimary(this.peek()) &&
-      !this.isStopIdentifier(this.peek())
+      !this.isStopIdentifier(this.peek()) &&
+      !(this.peek().kind === "identifier" && WORD_DIAD_KEYWORDS.has(this.peek().value))
     ) {
       return {
         kind: "call",
         callee,
         args: [this.parseAssignment()]
       };
+    }
+
+    if (
+      callee.kind === "identifier" &&
+      WORD_DIAD_KEYWORDS.has(callee.name) &&
+      this.canStartPrimary(this.peek()) &&
+      !this.isStopIdentifier(this.peek())
+    ) {
+      return callee;
     }
 
     const adjacent: AstNode[] = [];
@@ -1773,6 +1958,10 @@ export class Parser {
 
     if (adjacent.length === 0) {
       return callee;
+    }
+
+    if (adjacent.length === 1 && (callee.kind === "string" || isCallableAst(callee))) {
+      adjacent[0] = this.parseBinaryTail(adjacent[0]!);
     }
 
     if (callee.kind === "string") {
@@ -1832,6 +2021,43 @@ export class Parser {
       nested ?? (rest.length === 1 ? rest[0]! : { kind: "vector", items: rest });
 
     return { kind: "call", callee: head, args: [arg] };
+  }
+
+  private buildIfExpression(args: AstNode[]): AstNode {
+    if (args.length < 2) {
+      throw new QRuntimeError("parse", "if expects a condition and at least one body expression");
+    }
+
+    return {
+      kind: "if",
+      condition: args[0]!,
+      body: args.slice(1)
+    };
+  }
+
+  private buildCondExpression(args: AstNode[]): AstNode {
+    if (args.length < 2) {
+      throw new QRuntimeError("parse", "$ expects at least a condition and a result");
+    }
+
+    const elseValue = args.length % 2 === 1 ? args[args.length - 1]! : null;
+    const branchArgs = elseValue ? args.slice(0, -1) : args;
+    const branches: { condition: AstNode; value: AstNode }[] = [];
+
+    for (let index = 0; index < branchArgs.length; index += 2) {
+      const condition = branchArgs[index];
+      const value = branchArgs[index + 1];
+      if (!condition || !value) {
+        throw new QRuntimeError("parse", "$ expects condition/result pairs");
+      }
+      branches.push({ condition, value });
+    }
+
+    return {
+      kind: "cond",
+      branches,
+      elseValue
+    };
   }
 
   private parsePrimary(): AstNode {
@@ -1912,25 +2138,7 @@ export class Parser {
       throw new QRuntimeError("parse", `Unexpected token: operator ${base}`);
     }
 
-    let name = base;
-    while (this.peek().kind === "operator") {
-      const suffix = this.peek().value;
-      if (suffix === "':" && !name.endsWith(":")) {
-        name += this.consume("operator").value;
-        continue;
-      }
-      if (suffix === "'" && !name.endsWith("'") && !name.endsWith(":")) {
-        name += this.consume("operator").value;
-        continue;
-      }
-      if (suffix === ":" && !name.endsWith(":")) {
-        name += this.consume("operator").value;
-        continue;
-      }
-      break;
-    }
-
-    return { kind: "identifier", name };
+    return { kind: "identifier", name: this.extendOperatorName(base) };
   }
 
   private parseTableLiteral(): AstNode {
@@ -2110,13 +2318,16 @@ export class Parser {
     if (this.isStopIdentifier(this.peek())) {
       return left;
     }
+    if (this.isStopOperator(this.peek())) {
+      return left;
+    }
     if (this.peek().kind === "identifier" && WORD_DIAD_KEYWORDS.has(this.peek().value)) {
       const op = this.consume("identifier").value;
       const right = this.parseAssignment();
       return { kind: "binary", op, left, right };
     }
     if (this.peek().kind === "operator" && this.peek().value !== ":" && this.peek().value !== ";") {
-      const op = this.consume("operator").value;
+      const op = this.extendOperatorName(this.consume("operator").value);
       if (["separator", "rparen", "rbracket", "rbrace", "eof"].includes(this.peek().kind)) {
         return { kind: "call", callee: { kind: "identifier", name: op }, args: [left] };
       }
@@ -2124,6 +2335,31 @@ export class Parser {
       return { kind: "binary", op, left, right };
     }
     return left;
+  }
+
+  private extendOperatorName(base: string) {
+    let name = base;
+    while (this.peek().kind === "operator") {
+      const suffix = this.peek().value;
+      if (suffix === "':" && !name.endsWith(":")) {
+        name += this.consume("operator").value;
+        continue;
+      }
+      if (suffix === "'" && !name.endsWith("'") && !name.endsWith(":")) {
+        name += this.consume("operator").value;
+        continue;
+      }
+      if (suffix === ":" && !name.endsWith(":")) {
+        name += this.consume("operator").value;
+        continue;
+      }
+      if ((suffix === "/" || suffix === "\\") && !name.endsWith("/") && !name.endsWith("\\")) {
+        name += this.consume("operator").value;
+        continue;
+      }
+      break;
+    }
+    return name;
   }
 }
 
@@ -2140,16 +2376,25 @@ export const tokenize = (source: string): Token[] => {
     }
 
     if (char === "/") {
-      const previous = source[i - 1] ?? "\n";
       const next = source[i + 1] ?? "";
+      let previousIndex = i - 1;
+      while (
+        previousIndex >= 0 &&
+        (source[previousIndex] === " " ||
+          source[previousIndex] === "\t" ||
+          source[previousIndex] === "\r")
+      ) {
+        previousIndex -= 1;
+      }
+      const previousNonSpace = previousIndex >= 0 ? source[previousIndex] : "\n";
+      const previousChar = source[i - 1] ?? "";
+      const atStatementStart =
+        previousIndex < 0 || previousNonSpace === "\n" || previousNonSpace === ";";
+      const looksLikeTrailingComment =
+        (previousChar === " " || previousChar === "\t" || previousChar === "\r") &&
+        (next === " " || next === "\t");
       const inCommentPosition =
-        next !== ":" &&
-        (i === 0 ||
-          previous === "\n" ||
-          previous === ";" ||
-          previous === " " ||
-          previous === "\t" ||
-          previous === "\r");
+        next !== ":" && (atStatementStart || looksLikeTrailingComment);
       if (inCommentPosition) {
         while (i < source.length && source[i] !== "\n") {
           i += 1;
@@ -2184,6 +2429,17 @@ export const tokenize = (source: string): Token[] => {
     if (char === ";") {
       tokens.push({ kind: "separator", value: ";" });
       i += 1;
+      continue;
+    }
+
+    if (
+      (char === "+" || char === ",") &&
+      (source[i + 1] === "/" || source[i + 1] === "\\") &&
+      source[i + 2] !== ":" &&
+      source[i + 2] !== "'"
+    ) {
+      tokens.push({ kind: "operator", value: `${char}${source[i + 1]}` });
+      i += 2;
       continue;
     }
 
@@ -2281,6 +2537,52 @@ export const tokenize = (source: string): Token[] => {
       continue;
     }
 
+    const temporalBoundary = "(?=$|[ \\t\\r\\n\\]\\)\\};,])";
+    const monthMatch = source
+      .slice(i)
+      .match(new RegExp(`^\\d{4}\\.\\d{2}m?${temporalBoundary}`));
+    if (monthMatch) {
+      tokens.push({ kind: "date", value: monthMatch[0] });
+      i += monthMatch[0].length;
+      continue;
+    }
+
+    const timespanMatch = source
+      .slice(i)
+      .match(new RegExp(`^\\d{1,2}:\\d{2}:\\d{2}\\.\\d{9}${temporalBoundary}`));
+    if (timespanMatch) {
+      tokens.push({ kind: "date", value: timespanMatch[0] });
+      i += timespanMatch[0].length;
+      continue;
+    }
+
+    const timeMatch = source
+      .slice(i)
+      .match(new RegExp(`^\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}${temporalBoundary}`));
+    if (timeMatch) {
+      tokens.push({ kind: "date", value: timeMatch[0] });
+      i += timeMatch[0].length;
+      continue;
+    }
+
+    const secondMatch = source
+      .slice(i)
+      .match(new RegExp(`^\\d{1,2}:\\d{2}:\\d{2}${temporalBoundary}`));
+    if (secondMatch) {
+      tokens.push({ kind: "date", value: secondMatch[0] });
+      i += secondMatch[0].length;
+      continue;
+    }
+
+    const minuteMatch = source
+      .slice(i)
+      .match(new RegExp(`^\\d{1,2}:\\d{2}${temporalBoundary}`));
+    if (minuteMatch) {
+      tokens.push({ kind: "date", value: minuteMatch[0] });
+      i += minuteMatch[0].length;
+      continue;
+    }
+
     const canStartSignedNumber =
       i === 0 ||
       [" ", "\t", "\r", "\n", "(", "[", "{", ";", ":"].includes(source[i - 1] ?? "") ||
@@ -2327,13 +2629,16 @@ const isCallableAst = (node: AstNode) =>
   node.kind === "table" ||
   node.kind === "keyedTable";
 
+const isAssignmentOperator = (value: string) =>
+  value.length > 1 && value.endsWith(":") && value !== "::";
+
 const isShowExpression = (node: AstNode): boolean =>
   node.kind === "call" &&
   node.callee.kind === "identifier" &&
   node.callee.name === "show";
 
 const isSilentExpression = (node: AstNode): boolean =>
-  node.kind === "assign" || isShowExpression(node);
+  node.kind === "assign" || node.kind === "assignGlobal" || isShowExpression(node);
 
 const renderAst = (node: AstNode): string => {
   switch (node.kind) {
@@ -2374,6 +2679,18 @@ const renderAst = (node: AstNode): string => {
       return `update ${node.updates.map((update) => `${update.name}:${renderAst(update.value)}`).join(",")} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
     case "delete":
       return `delete ${node.columns ? node.columns.join(",") : ""} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
+    case "if":
+      return `if[${[renderAst(node.condition), ...node.body.map(renderAst)].join(";")}]`;
+    case "cond": {
+      const items = node.branches.flatMap((branch) => [
+        renderAst(branch.condition),
+        renderAst(branch.value)
+      ]);
+      if (node.elseValue) {
+        items.push(renderAst(node.elseValue));
+      }
+      return `$[${items.join(";")}]`;
+    }
     case "each":
       return `${renderAst(node.callee)}each ${renderAst(node.arg)}`;
     case "eachCall":
@@ -2384,6 +2701,8 @@ const renderAst = (node: AstNode): string => {
       return `${renderAst(node.left)}${node.op}${renderAst(node.right)}`;
     case "assign":
       return `${node.name}:${renderAst(node.value)}`;
+    case "assignGlobal":
+      return `${node.name}::${renderAst(node.value)}`;
     case "call":
       return `${renderAst(node.callee)}[${node.args.map(renderAst).join(";")}]`;
     case "lambda":
@@ -2391,6 +2710,7 @@ const renderAst = (node: AstNode): string => {
     case "program":
       return node.statements.map(renderAst).join(";");
   }
+  throw new QRuntimeError("nyi", `Cannot render AST node ${(node as AstNode).kind}`);
 };
 
 const parseNumericLiteral = (raw: string): QValue => {
@@ -2420,6 +2740,35 @@ const parseNumericLiteral = (raw: string): QValue => {
   }
   return qInt(Number.parseInt(raw, 10));
 };
+
+const parseTemporalLiteral = (raw: string): QValue => {
+  if (/^\d{4}\.\d{2}\.\d{2}$/.test(raw)) {
+    return qDate(raw);
+  }
+  if (/^\d{4}\.\d{2}m?$/.test(raw)) {
+    return qTemporal("month", raw);
+  }
+  if (/^\d{1,2}:\d{2}:\d{2}\.\d{9}$/.test(raw)) {
+    return qTemporal("timespan", `0D${raw}`);
+  }
+  if (/^\d{1,2}:\d{2}:\d{2}\.\d{3}$/.test(raw)) {
+    return qTemporal("time", raw);
+  }
+  if (/^\d{1,2}:\d{2}:\d{2}$/.test(raw)) {
+    return qTemporal("second", raw);
+  }
+  if (/^\d{1,2}:\d{2}$/.test(raw)) {
+    return qTemporal("minute", raw);
+  }
+  return qDate(raw);
+};
+
+const qTemporal = (temporalType: TemporalType, value: string): QValue =>
+  ({
+    kind: "temporal",
+    temporalType,
+    value
+  } as QValue);
 
 const lambdaArity = (lambda: LambdaValue): number => {
   if (lambda.params) {
@@ -2451,6 +2800,7 @@ const collectImplicitParams = (node: AstNode, used: Set<string>) => {
       }
       return;
     case "assign":
+    case "assignGlobal":
       collectImplicitParams(node.value, used);
       return;
     case "vector":
@@ -2489,6 +2839,19 @@ const collectImplicitParams = (node: AstNode, used: Set<string>) => {
       collectImplicitParams(node.source, used);
       if (node.where) {
         collectImplicitParams(node.where, used);
+      }
+      return;
+    case "if":
+      collectImplicitParams(node.condition, used);
+      node.body.forEach((statement) => collectImplicitParams(statement, used));
+      return;
+    case "cond":
+      node.branches.forEach((branch) => {
+        collectImplicitParams(branch.condition, used);
+        collectImplicitParams(branch.value, used);
+      });
+      if (node.elseValue) {
+        collectImplicitParams(node.elseValue, used);
       }
       return;
     case "binary":
@@ -2719,6 +3082,35 @@ const countValue = (value: QValue) => {
 const absValue = (value: QValue): QValue => {
   if (value.kind === "list") {
     return qList(value.items.map(absValue), value.homogeneous ?? false);
+  }
+  if (value.kind === "temporal" && value.temporalType === "date") {
+    if (value.value === "0Nd") {
+      return qDate("0Nd");
+    }
+    return qDate(formatQDateFromDays(Math.abs(parseQDateDays(value.value))));
+  }
+  if (value.kind === "number") {
+    if (value.special === "intNull") {
+      return qInt(0, "intNull");
+    }
+    if (value.special === "intPosInf") {
+      return qInt(0, "intPosInf");
+    }
+    if (value.special === "intNegInf") {
+      return qInt(0, "intPosInf");
+    }
+  }
+  if (value.kind === "number" && value.numericType === "float") {
+    if (value.special === "null") {
+      return qFloat(Number.NaN, "null");
+    }
+    if (value.special === "posInf") {
+      return qFloat(Number.POSITIVE_INFINITY, "posInf");
+    }
+    if (value.special === "negInf") {
+      return qFloat(Number.POSITIVE_INFINITY, "posInf");
+    }
+    return qFloat(Math.abs(value.value));
   }
   return numeric(Math.abs(toNumber(value)));
 };
@@ -3465,7 +3857,65 @@ const groupValue = (value: QValue): QValue => {
   );
 };
 
-const reduceValue = (session: Session, callable: QValue, value: QValue): QValue => {
+const callableArity = (value: QValue): number | null => {
+  switch (value.kind) {
+    case "builtin":
+      return value.arity;
+    case "lambda":
+      return lambdaArity(value as LambdaValue);
+    case "projection":
+      return value.arity - value.args.filter((arg) => arg !== null).length;
+    default:
+      return null;
+  }
+};
+
+const convergeValue = (session: Session, callable: QValue, value: QValue, scan: boolean): QValue => {
+  const outputs = [value];
+  let current = value;
+  for (let index = 0; index < 1024; index += 1) {
+    const next = session.invoke(callable, [current]);
+    outputs.push(next);
+    if (equals(next, current)) {
+      return scan ? qList(outputs, false) : current;
+    }
+    current = next;
+  }
+  throw new QRuntimeError("limit", "converge exceeded iteration limit");
+};
+
+const reduceValueWithSeed = (session: Session, callable: QValue, seed: QValue, value: QValue): QValue => {
+  let result = seed;
+  for (const item of asSequenceItems(value)) {
+    result = session.invoke(callable, [result, item]);
+  }
+  return result;
+};
+
+const scanValueWithSeed = (session: Session, callable: QValue, seed: QValue, value: QValue): QValue => {
+  const outputs: QValue[] = [];
+  let result = seed;
+  for (const item of asSequenceItems(value)) {
+    result = session.invoke(callable, [result, item]);
+    outputs.push(result);
+  }
+  return qList(outputs, false);
+};
+
+const flattenRazeLeaves = (value: QValue): QValue[] => {
+  if (value.kind !== "list") {
+    return [value];
+  }
+  return value.items.flatMap((item) => flattenRazeLeaves(item));
+};
+
+const reduceValue = (session: Session, callable: QValue, value: QValue, seed?: QValue): QValue => {
+  if (seed !== undefined) {
+    return reduceValueWithSeed(session, callable, seed, value);
+  }
+  if (callableArity(callable) === 1) {
+    return convergeValue(session, callable, value, false);
+  }
   const items = asSequenceItems(value);
   if (items.length === 0) {
     return qNull();
@@ -3477,7 +3927,13 @@ const reduceValue = (session: Session, callable: QValue, value: QValue): QValue 
   return result;
 };
 
-const scanValue = (session: Session, callable: QValue, value: QValue): QValue => {
+const scanValue = (session: Session, callable: QValue, value: QValue, seed?: QValue): QValue => {
+  if (seed !== undefined) {
+    return scanValueWithSeed(session, callable, seed, value);
+  }
+  if (callableArity(callable) === 1) {
+    return convergeValue(session, callable, value, true);
+  }
   const items = asSequenceItems(value);
   if (items.length === 0) {
     return qList([], false);
@@ -3833,6 +4289,9 @@ const whereValue = (value: QValue): QValue => {
 };
 
 const concatValues = (left: QValue, right: QValue): QValue => {
+  if (left.kind === "table" && right.kind === "table") {
+    return concatTables(left, right);
+  }
   if (left.kind === "list" && right.kind === "list") {
     return qList([...left.items, ...right.items], left.homogeneous && right.homogeneous);
   }
@@ -3848,14 +4307,46 @@ const concatValues = (left: QValue, right: QValue): QValue => {
   return qList([left, right]);
 };
 
+const concatTables = (left: QTable, right: QTable): QTable => {
+  const leftNames = Object.keys(left.columns);
+  const rightNames = Object.keys(right.columns);
+
+  if (
+    leftNames.length !== rightNames.length ||
+    leftNames.some((name, index) => name !== rightNames[index])
+  ) {
+    throw new QRuntimeError("type", "Cannot append tables with different schemas");
+  }
+
+  return qTable(
+    Object.fromEntries(
+      leftNames.map((name) => {
+        const leftColumn = left.columns[name]!;
+        const rightColumn = right.columns[name]!;
+        return [
+          name,
+          qList(
+            [...leftColumn.items, ...rightColumn.items],
+            (leftColumn.homogeneous ?? false) && (rightColumn.homogeneous ?? false)
+          )
+        ];
+      })
+    )
+  );
+};
+
 const razeValue = (value: QValue): QValue => {
   if (value.kind !== "list") {
     return value;
   }
-  if (value.items.length === 0) {
+  const items = flattenRazeLeaves(value);
+  if (items.length === 0) {
     return qList([]);
   }
-  return value.items.reduce((acc, item) => concatValues(acc, item));
+  if (items.every((item) => item.kind === "string")) {
+    return qString(items.map((item) => item.value).join(""));
+  }
+  return items.reduce((acc, item) => concatValues(acc, item));
 };
 
 const takeValue = (left: QValue, right: QValue): QValue => {
@@ -4005,12 +4496,38 @@ const castValue = (left: QValue, right: QValue): QValue => {
 
   switch (castName) {
     case "":
+    case "symbol":
+    case "11h":
       return castSymbolValue(right);
-    case "10h":
-      return castCharValue(right);
+    case "boolean":
+    case "bool":
+    case "1h":
+      return castBooleanValue(right);
+    case "short":
+    case "h":
+    case "5h":
+      return castShortValue(right);
     case "int":
     case "i":
+    case "long":
+    case "j":
+    case "6h":
+    case "7h":
       return castIntValue(right);
+    case "float":
+    case "real":
+    case "e":
+    case "f":
+    case "8h":
+    case "9h":
+      return castFloatValue(right);
+    case "10h":
+    case "char":
+    case "string":
+      return castCharValue(right);
+    case "date":
+    case "14h":
+      return castDateValue(right);
     default:
       throw new QRuntimeError("nyi", `Cast ${castName}$ is not implemented yet`);
   }
@@ -4026,6 +4543,9 @@ const xbarValue = (left: QValue, right: QValue): QValue =>
   });
 
 const castSymbolValue = (value: QValue): QValue => {
+  if (value.kind === "temporal") {
+    return qSymbol(value.value);
+  }
   if (value.kind === "string") {
     return qSymbol(value.value);
   }
@@ -4039,6 +4559,9 @@ const castSymbolValue = (value: QValue): QValue => {
 };
 
 const castSymbolAtom = (value: QValue): QValue => {
+  if (value.kind === "temporal") {
+    return qSymbol(value.value);
+  }
   if (value.kind === "string") {
     return qSymbol(value.value);
   }
@@ -4048,9 +4571,74 @@ const castSymbolAtom = (value: QValue): QValue => {
   throw new QRuntimeError("type", "symbol$ expects strings or symbols");
 };
 
+const castBooleanValue = (value: QValue): QValue => {
+  if (value.kind === "list") {
+    return qList(value.items.map(castBooleanAtom), true);
+  }
+  return castBooleanAtom(value);
+};
+
+const castBooleanAtom = (value: QValue): QValue => {
+  if (value.kind === "null") {
+    return qBool(false);
+  }
+  if (value.kind === "boolean") {
+    return value;
+  }
+  if (value.kind === "number") {
+    if (value.special === "null" || value.special === "intNull") {
+      return qBool(false);
+    }
+    return qBool(value.value !== 0);
+  }
+  throw new QRuntimeError("type", "boolean$ expects boolean or numeric values");
+};
+
+const castShortValue = (value: QValue): QValue => {
+  if (value.kind === "list") {
+    return qList(value.items.map(castShortAtom), true);
+  }
+  return castShortAtom(value);
+};
+
+const castShortAtom = (value: QValue): QValue => {
+  if (value.kind === "null") {
+    return qShort(0);
+  }
+  if (value.kind === "number") {
+    if (value.special === "null" || value.special === "intNull") {
+      return qShort(0);
+    }
+    return qShort(Math.trunc(value.value));
+  }
+  if (value.kind === "boolean") {
+    return qShort(value.value ? 1 : 0);
+  }
+  throw new QRuntimeError("type", "short$ expects numeric values");
+};
+
 const castCharValue = (value: QValue): QValue => {
+  if (value.kind === "null") {
+    return qString("");
+  }
+  if (value.kind === "symbol" || value.kind === "temporal") {
+    return qString(value.value);
+  }
+  if (value.kind === "number") {
+    return qString(String.fromCharCode(Math.max(0, Math.trunc(toNumber(value)))));
+  }
+  if (value.kind === "boolean") {
+    return qString(value.value ? "1" : "0");
+  }
   if (value.kind === "string") {
     return value;
+  }
+  if (value.kind === "list" && value.items.every((item) => item.kind === "string")) {
+    return qString(
+      value.items
+        .map((item) => (item.kind === "string" ? item.value : ""))
+        .join("")
+    );
   }
   if (value.kind === "list" && value.items.every((item) => item.kind === "number")) {
     return qString(
@@ -4076,10 +4664,86 @@ const castIntAtom = (value: QValue): QValue => {
     }
     return qInt(Math.trunc(value.value));
   }
+  if (value.kind === "temporal" && value.temporalType === "date") {
+    if (value.value === "0Nd") {
+      return qInt(0, "intNull");
+    }
+    return qInt(parseQDateDays(value.value));
+  }
+  if (value.kind === "boolean") {
+    return qInt(value.value ? 1 : 0);
+  }
   if (value.kind === "null") {
     return qInt(0, "intNull");
   }
   throw new QRuntimeError("type", "int$ expects numeric values");
+};
+
+const castFloatValue = (value: QValue): QValue => {
+  if (value.kind === "list") {
+    return qList(value.items.map(castFloatAtom), true);
+  }
+  return castFloatAtom(value);
+};
+
+const castFloatAtom = (value: QValue): QValue => {
+  if (value.kind === "null") {
+    return qFloat(Number.NaN, "null");
+  }
+  if (value.kind === "number") {
+    if (value.special === "null" || value.special === "intNull") {
+      return qFloat(Number.NaN, "null");
+    }
+    if (value.special === "intPosInf" || value.special === "posInf") {
+      return qFloat(Number.POSITIVE_INFINITY, "posInf");
+    }
+    if (value.special === "intNegInf" || value.special === "negInf") {
+      return qFloat(Number.NEGATIVE_INFINITY, "negInf");
+    }
+    return qFloat(value.value);
+  }
+  if (value.kind === "boolean") {
+    return qFloat(value.value ? 1 : 0);
+  }
+  throw new QRuntimeError("type", "float$ expects numeric values");
+};
+
+const castDateValue = (value: QValue): QValue => {
+  if (value.kind === "list") {
+    return qList(value.items.map(castDateAtom), true);
+  }
+  return castDateAtom(value);
+};
+
+const castDateAtom = (value: QValue): QValue => {
+  if (value.kind === "null") {
+    return qDate("0Nd");
+  }
+  if (value.kind === "temporal" && value.temporalType === "date") {
+    return value;
+  }
+  if ((value.kind === "string" || value.kind === "symbol") && isDateLiteral(value.value)) {
+    return qDate(value.value);
+  }
+  throw new QRuntimeError("type", "date$ expects date strings or dates");
+};
+
+const isDateLiteral = (value: string) => /^\d{4}\.\d{2}\.\d{2}$|^0Nd$/.test(value);
+
+const Q_DATE_EPOCH_MS = Date.UTC(2000, 0, 1);
+
+const parseQDateDays = (value: string) => {
+  const [yearText, monthText, dayText] = value.split(".");
+  const year = Number.parseInt(yearText ?? "", 10);
+  const month = Number.parseInt(monthText ?? "", 10);
+  const day = Number.parseInt(dayText ?? "", 10);
+  const utcMs = Date.UTC(year, month - 1, day);
+  return Math.round((utcMs - Q_DATE_EPOCH_MS) / 86400000);
+};
+
+const formatQDateFromDays = (days: number) => {
+  const date = new Date(Q_DATE_EPOCH_MS + days * 86400000);
+  return date.toISOString().slice(0, 10).replace(/-/g, ".");
 };
 
 const buildTable = (columns: { name: string; value: QValue }[]): QTable => {
@@ -4420,6 +5084,9 @@ const formatBare = (value: QValue): string => {
             .map((item) => (item.kind === "number" ? `${item.value}` : formatBare(item)))
             .join(" ")}i`;
         }
+        if (value.attribute === "explicitFloat") {
+          return `${value.items.map((item) => formatListNumber(item)).join(" ")}f`;
+        }
         return value.items.map((item) => formatListNumber(item)).join(" ");
       }
       if (value.items.every((item) => item.kind === "boolean")) {
@@ -4440,6 +5107,18 @@ const formatBare = (value: QValue): string => {
       }
       if (value.items.every((item) => item.kind === "list" || item.kind === "string")) {
         return value.items.map((item) => formatBare(item)).join("\n");
+      }
+      if (
+        value.items.some(
+          (item) =>
+            item.kind === "list" ||
+            item.kind === "string" ||
+            item.kind === "dictionary" ||
+            item.kind === "table" ||
+            item.kind === "keyedTable"
+        )
+      ) {
+        return value.items.map(formatBare).join("\n");
       }
       return value.items.map(formatBare).join(" ");
     case "dictionary":
@@ -4470,19 +5149,22 @@ const trimFloat = (value: number) => {
 };
 
 const formatFloat = (value: number) => {
-  if (Number.isInteger(value)) {
-    return `${value}f`;
-  }
+  const useScientific = Number.isFinite(value) && value !== 0 && Math.abs(value) >= 1e12;
+  const text = useScientific
+    ? value.toExponential(6)
+    : Number.isInteger(value)
+      ? `${value}`
+      : value.toPrecision(7);
+  const normalized = text.includes("e") || text.includes("E")
+    ? text
+        .replace(/(\.\d*?[1-9])0+(e.*)$/i, "$1$2")
+        .replace(/\.0+(e.*)$/i, "$1")
+        .replace(/\.e/i, "e")
+    : text.includes(".")
+      ? text.replace(/0+$/, "").replace(/\.$/, "")
+      : text;
 
-  const text = value.toPrecision(7);
-  if (text.includes("e") || text.includes("E")) {
-    return text
-      .replace(/(\.\d*?[1-9])0+(e.*)$/i, "$1$2")
-      .replace(/\.0+(e.*)$/i, "$1")
-      .replace(/\.e/i, "e");
-  }
-
-  return text.replace(/0+$/, "").replace(/\.$/, "");
+  return Number.isInteger(value) && !useScientific ? `${normalized}f` : normalized;
 };
 
 const formatListNumber = (value: QValue) => {
@@ -4511,7 +5193,7 @@ const formatListNumber = (value: QValue) => {
     return `${value.value}h`;
   }
   if (value.numericType === "float") {
-    return Number.isInteger(value.value) ? `${value.value}` : formatFloat(value.value);
+    return formatFloat(value.value).replace(/f$/, "");
   }
   return `${value.value}`;
 };

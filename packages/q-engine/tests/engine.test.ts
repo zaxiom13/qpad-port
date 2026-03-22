@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSession, formatValue } from "../src/index";
+import { createSession, formatValue, parse } from "../src/index";
 
 describe("q engine smoke tests", () => {
   it("evaluates scalar arithmetic", () => {
@@ -73,6 +73,52 @@ describe("q engine smoke tests", () => {
         session.evaluate("cols .Q.id(`$(\"count+\";\"count*\";\"count1\"))xcol([]1 2;3 4;5 6)").value
       )
     ).toBe("`count1`count11`count12\n");
+  });
+
+  it("parses and formats the temporal literals used by the reference-card syntax page", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("2017.01").value)).toBe("2017.01\n");
+    expect(formatValue(session.evaluate("2018.05 2018.07 2019.01m").value)).toBe(
+      "2018.05 2018.07 2019.01m\n"
+    );
+    expect(formatValue(session.evaluate("00:00:00.000000000").value)).toBe(
+      "0D00:00:00.000000000\n"
+    );
+    expect(formatValue(session.evaluate("00:00").value)).toBe("00:00\n");
+    expect(formatValue(session.evaluate("00:00:00").value)).toBe("00:00:00\n");
+    expect(formatValue(session.evaluate("00:00:00.000").value)).toBe("00:00:00.000\n");
+  });
+
+  it("supports q assignment operators that end with colon", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("a:1;a+:2;a").value)).toBe("3\n");
+    expect(formatValue(session.evaluate("a:10;a-:3;a").value)).toBe("7\n");
+    expect(formatValue(session.evaluate("a:4;a*:5;a").value)).toBe("20\n");
+    expect(formatValue(session.evaluate("a:9;a%:2;a").value)).toBe("4.5\n");
+    expect(formatValue(session.evaluate("a:1 2;a,:3 4;a").value)).toBe("1 2 3 4\n");
+    expect(formatValue(session.evaluate(".qv.v:41;.qv.v+:1;.qv.v").value)).toBe("42\n");
+  });
+
+  it("preserves dotted namespace members across lambda execution", () => {
+    const session = createSession();
+    const program = [
+      ".qv.cmds:()",
+      ".qv.state:()",
+      ".qv.config:()",
+      ".qv.append:{[cmd].qv.cmds,:enlist cmd;:cmd}",
+      ".qv.init:{.qv.cmds:();result:1;.qv.state:result;.qv.config:result;:result}",
+      ".qv.frame:{[a;b;c].qv.cmds:();state1:draw[.qv.state;a;b;c];.qv.state:state1;:1_.qv.cmds}",
+      "setup:{1}",
+      "draw:{[state;frameInfo;input;canvas] state}",
+      ".qv.init[]",
+      ".qv.frame[1;2;3]"
+    ].join(";");
+
+    expect(formatValue(session.evaluate(program).value)).toBe("()\n");
+    expect(formatValue(session.evaluate("key `.qv").value)).toBe("``cmds`state`config`append`init`frame\n");
+    expect(formatValue(session.evaluate(".qv.frame").value)).toBe(
+      "{[a;b;c].qv.cmds:()state1:draw[.qv.state;a;b;c].qv.state:state1:1_.qv.cmds}\n"
+    );
   });
 
   it("deduplicates vectors", () => {
@@ -175,6 +221,26 @@ describe("q engine smoke tests", () => {
     expect(formatValue(session.evaluate("@[2+;3;4]").value)).toBe("5\n");
   });
 
+  it("supports the common q casts used by practice starters", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("`symbol$()").value)).toBe("()\n");
+    expect(formatValue(session.evaluate("`long$()").value)).toBe("()\n");
+    expect(formatValue(session.evaluate("`boolean$1 0 2").value)).toBe("101b\n");
+    expect(formatValue(session.evaluate("`short$1.9 2.1").value)).toBe("1h 2h\n");
+    expect(formatValue(session.evaluate("`int$1.9 2.1").value)).toBe("1 2\n");
+    expect(formatValue(session.evaluate("`float$1 2 3").value)).toBe("1 2 3\n");
+    expect(formatValue(session.evaluate("`string$97 98 99").value)).toBe("\"abc\"\n");
+    expect(formatValue(session.evaluate("`symbol$(\"ab\";\"cd\")").value)).toBe("`ab`cd\n");
+    expect(formatValue(session.evaluate("`date$(\"2026.03.22\";\"2026.03.23\")").value)).toBe("2026.03.22 2026.03.23\n");
+  });
+
+  it("preserves typed vector suffixes and scientific float formatting", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("2 3 4 5 6i").value)).toBe("2 3 4 5 6i\n");
+    expect(formatValue(session.evaluate("2 3 4 5 6f").value)).toBe("2 3 4 5 6f\n");
+    expect(formatValue(session.evaluate("3.4 57 1.2e20").value)).toBe("3.4 57 1.2e+20\n");
+  });
+
   it("supports browser-native pattern and set verbs", () => {
     const session = createSession();
     expect(formatValue(session.evaluate("\"abc\" like \"a*\"").value)).toBe("1b\n");
@@ -218,6 +284,32 @@ describe("q engine smoke tests", () => {
     expect(formatValue(session.evaluate("keys `a`b!1 2").value)).toBe("`a`b\n");
   });
 
+  it("matches the remaining reference-card adverb and derived-function forms", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("+\\[1 2 3 4 5]").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("+\\[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("1000+\\1 2 3 4 5").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)1 2 3 4 5").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("n:(1 2 3 4;5 6 7 8);(,/) over n").value)).toBe(
+      "1 2 3 4 5 6 7 8\n"
+    );
+    expect(formatValue(session.evaluate("n:(1 2 3 4;5 6 7 8);raze over n").value)).toBe(
+      "1 2 3 4 5 6 7 8\n"
+    );
+    expect(formatValue(session.evaluate("n:(1 2 3 4;5 6 7 8);{,/[x]}over n").value)).toBe(
+      "1 2 3 4 5 6 7 8\n"
+    );
+    expect(formatValue(session.evaluate("(+/)1 2 3 4").value)).toBe("10\n");
+    expect(formatValue(session.evaluate("16 +/ 1 2 3 4").value)).toBe("26\n");
+  });
+
   it("supports baked-in complex reductions used by the mandelbrot snippet", () => {
     const session = createSession();
     const program = [
@@ -254,14 +346,134 @@ describe("q engine smoke tests", () => {
     );
   });
 
+  it("supports lazy q control forms and qsql on assignment rhs", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("a:0;if[0b;a:1];a").value)).toBe("0\n");
+    expect(formatValue(session.evaluate("a:0;if[1b;a:1];a").value)).toBe("1\n");
+    expect(formatValue(session.evaluate("$[1b;42;99]").value)).toBe("42\n");
+    expect(formatValue(session.evaluate("$[0b;42;99]").value)).toBe("99\n");
+    expect(formatValue(session.evaluate("t:([]x:1 2); t:update y:x+1 from t; t").value)).toBe(
+      "x y\n---\n1 2\n2 3\n"
+    );
+  });
+
+  it("parses right-to-left application used by shipped sketches", () => {
+    const session = createSession();
+    expect(
+      formatValue(
+        session.evaluate("palette:10 20 30 40 50 60; idx:til 8; t:1; palette (idx+t) mod count palette").value
+      )
+    ).toBe("20 30 40 50 60 10 20 30\n");
+    expect(formatValue(session.evaluate("cw:10; idx:til 6; nc:3; cw*idx mod nc").value)).toBe(
+      "0 10 20 0 10 20\n"
+    );
+    expect(formatValue(session.evaluate("ch:5; idx:til 6; nc:3; ch*idx div nc").value)).toBe(
+      "0 0 0 5 5 5\n"
+    );
+  });
+
+  it("supports derived reduce and scan forms from the syntax reference card", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("+\\[1 2 3 4 5]").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("+\\[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("1000+\\1 2 3 4 5").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)1 2 3 4 5").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("(+/)1 2 3 4").value)).toBe("10\n");
+    expect(formatValue(session.evaluate("16 +/ 1 2 3 4").value)).toBe("26\n");
+    expect(formatValue(session.evaluate("n:(1 2;3 4 5;6 7 8 9);(,/) over n").value)).toBe(
+      "1 2 3 4 5 6 7 8 9\n"
+    );
+    expect(formatValue(session.evaluate("n:(1 2;3 4 5;6 7 8 9);{,/[x]}over n").value)).toBe(
+      "1 2 3 4 5 6 7 8 9\n"
+    );
+    expect(
+      formatValue(
+        session.evaluate(
+          'n:("the ";("quick ";"brown ";("fox ";"jumps ";"over ");"the ");("lazy ";"dog."));raze over n'
+        ).value
+      )
+    ).toBe('"the quick brown fox jumps over the lazy dog."\n');
+  });
+
+  it("keeps lambda locals scoped unless q global assignment is used", () => {
+    const session = createSession();
+    expect(
+      formatValue(session.evaluate("x:10;f:{a : 10; : x + a; a : 20};f[5];x").value)
+    ).toBe("10\n");
+    expect(
+      formatValue(session.evaluate("x:10;f:{x::x+1;:x};f[5];x").value)
+    ).toBe("6\n");
+    expect(session.evaluate("a::10").formatted).toBe("");
+    expect(formatValue(session.evaluate("a").value)).toBe("10\n");
+  });
+
+  it("matches reference-card abs behavior for null ints and dates", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("abs 10 -43 0N").value)).toBe("10 43 0N\n");
+    expect(formatValue(session.evaluate("abs 1999.01.01").value)).toBe("2000.12.31\n");
+    expect(formatValue(session.evaluate("\"j\"$1999.01.01 2000.12.31").value)).toBe("-365 365\n");
+    expect(formatValue(session.evaluate("abs(10;20 -30)").value)).toBe("10\n20 30\n");
+  });
+
+  it("appends tables row-wise with comma like q", () => {
+    const session = createSession();
+    expect(
+      formatValue(
+        session.evaluate("a:([] x:1 2; y:10 20); b:([] x:3 4; y:30 40); a,b").value
+      )
+    ).toBe("x y\n---\n1 10\n2 20\n3 30\n4 40\n");
+  });
+
   it("emits show output and ignores trailing q comments", () => {
     const session = createSession();
     expect(session.evaluate("show 1 2 3").formatted).toBe("1 2 3\n");
     expect(session.evaluate("v:10 20 30; show v; v[1]").formatted).toBe("10 20 30\n20\n");
     expect(session.evaluate("show 1 2 3               / values").formatted).toBe("1 2 3\n");
+    expect(session.evaluate("r:({x+y}/) each (1 2 3;4 5 6); r").formatted).toBe("6 15\n");
+    expect(session.evaluate("r:({x+y} /) each (1 2 3;4 5 6); r").formatted).toBe("6 15\n");
     expect(session.evaluate("\"abcdef\" 1 0 3").formatted).toBe("\"bad\"\n");
     expect(session.evaluate("enlist 3").formatted).toBe(",3\n");
     expect(session.evaluate("/Oh what a lovely day").formatted).toBe("");
+  });
+
+  it("supports derived over and scan forms from the reference-card syntax page", () => {
+    const session = createSession();
+    const nested =
+      'n:("the ";("quick ";"brown ";("fox ";"jumps ";"over ");"the ");("lazy ";"dog."))';
+
+    expect(formatValue(session.evaluate("+\\[1 2 3 4 5]").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("+\\[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("1000+\\1 2 3 4 5").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)[1000;1 2 3 4 5]").value)).toBe(
+      "1001 1003 1006 1010 1015\n"
+    );
+    expect(formatValue(session.evaluate("(+\\)1 2 3 4 5").value)).toBe("1 3 6 10 15\n");
+    expect(formatValue(session.evaluate("(+/)1 2 3 4").value)).toBe("10\n");
+    expect(formatValue(session.evaluate("16 +/ 1 2 3 4").value)).toBe("26\n");
+    expect(formatValue(session.evaluate(`${nested};(,/) over n`).value)).toBe(
+      '"the quick brown fox jumps over the lazy dog."\n'
+    );
+    expect(formatValue(session.evaluate(`${nested};raze over n`).value)).toBe(
+      '"the quick brown fox jumps over the lazy dog."\n'
+    );
+    expect(formatValue(session.evaluate(`${nested};{,/[x]}over n`).value)).toBe(
+      '"the quick brown fox jumps over the lazy dog."\n'
+    );
+  });
+
+  it("parses adverb forms that combine scan tokens with colon suffixes", () => {
+    expect(() => parse("percent:1.2; i:0 1+\\:floor percent; i")).not.toThrow();
   });
 
   it("supports basic trig monads needed by upstream jq", () => {
@@ -306,5 +518,13 @@ describe("q engine smoke tests", () => {
     expect(
       formatValue(session.evaluate("count each string floor 1.2 123 1.23445 -1234578.5522").value)
     ).toBe("1 3 1 8\n");
+  });
+
+  it("preserves float results for abs on float inputs", () => {
+    const session = createSession();
+    expect(formatValue(session.evaluate("abs -1.0").value)).toBe("1f\n");
+    expect(formatValue(session.evaluate("abs -1.0 2.5").value)).toBe("1 2.5\n");
+    expect(formatValue(session.evaluate("(10;20 -30)").value)).toBe("10\n20 -30\n");
+    expect(formatValue(session.evaluate("abs(10;20 -30)").value)).toBe("10\n20 30\n");
   });
 });
