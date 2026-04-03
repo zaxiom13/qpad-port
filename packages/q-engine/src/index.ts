@@ -276,29 +276,47 @@ interface LambdaValue extends QLambda {
   body: AstNode[];
 }
 
+const createHostAdapter = (host: HostAdapter): Required<HostAdapter> => ({
+  now: host.now ?? (() => new Date()),
+  timezone: host.timezone ?? (() => Intl.DateTimeFormat().resolvedOptions().timeZone),
+  env: host.env ?? (() => ({})),
+  consoleSize: host.consoleSize ?? (() => ({ rows: 40, columns: 120 })),
+  unsupported:
+    host.unsupported ??
+    ((name: string) => {
+      throw new QRuntimeError("nyi", `${name} is not available in the browser host`);
+    })
+});
+
+const builtinRef = (name: string, arity: number): QBuiltin => ({
+  kind: "builtin",
+  name,
+  arity
+});
+
+const namespaceValue = (name: string, entries: [string, QValue][]): QNamespace => ({
+  kind: "namespace",
+  name,
+  entries: new Map<string, QValue>(entries)
+});
+
 export class Session {
   private readonly env = new Map<string, QValue>();
-  private readonly builtins = new Map<string, BuiltinEntry>();
+  private readonly builtins: ReadonlyMap<string, BuiltinEntry>;
   private readonly host: Required<HostAdapter>;
   private readonly root: Session;
+  private readonly parent: Session | null;
   private outputBuffer = "";
 
-  constructor(host: HostAdapter = {}, root?: Session) {
-    this.host = {
-      now: host.now ?? (() => new Date()),
-      timezone: host.timezone ?? (() => Intl.DateTimeFormat().resolvedOptions().timeZone),
-      env: host.env ?? (() => ({})),
-      consoleSize: host.consoleSize ?? (() => ({ rows: 40, columns: 120 })),
-      unsupported:
-        host.unsupported ??
-        ((name: string) => {
-          throw new QRuntimeError("nyi", `${name} is not available in the browser host`);
-        })
-    };
+  constructor(host: HostAdapter = {}, root?: Session, parent?: Session | null) {
+    this.parent = parent ?? null;
+    this.host = parent?.host ?? createHostAdapter(host);
     this.root = root ?? this;
+    this.builtins = parent?.builtins ?? SHARED_BUILTINS;
 
-    this.installBuiltins();
-    this.seedNamespaces();
+    if (!parent) {
+      this.seedNamespaces();
+    }
   }
 
   evaluate(source: string): EvalResult {
@@ -318,12 +336,12 @@ export class Session {
   }
 
   get(name: string): QValue {
-    this.refreshDynamicNamespaces();
+    this.root.refreshDynamicNamespaces();
     if (name.includes(".")) {
       return this.getDotted(name);
     }
-    const value = this.env.get(name);
-    if (value) {
+    const value = this.lookup(name);
+    if (value !== undefined) {
       return value;
     }
     const builtin = this.builtins.get(name);
@@ -356,9 +374,7 @@ export class Session {
       return value;
     }
 
-    let current =
-      this.env.get(`.${parts[0]}`) ??
-      this.env.get(parts[0]);
+    let current = this.getRootValue(parts[0]!);
 
     if (!current) {
       current = {
@@ -402,6 +418,14 @@ export class Session {
 
   emit(value: QValue) {
     this.root.outputBuffer += formatValue(value);
+  }
+
+  unsupported(name: string): never {
+    return this.host.unsupported(name);
+  }
+
+  private createChildScope() {
+    return new Session({}, this.root, this);
   }
 
   private eval(node: AstNode): QValue {
@@ -672,10 +696,7 @@ export class Session {
       return qProjection(lambda, [...args], arity);
     }
 
-    const child = new Session(this.host, this.root);
-    for (const [key, value] of this.env.entries()) {
-      child.assign(key, value);
-    }
+    const child = this.createChildScope();
 
     const params = lambda.params ?? ["x", "y", "z"].slice(0, Math.max(arity, args.length));
     params.forEach((param, index) => {
@@ -694,10 +715,7 @@ export class Session {
   }
 
   private createTableContext(table: QTable, positions?: number[]) {
-    const child = new Session(this.host, this.root);
-    for (const [key, value] of this.env.entries()) {
-      child.assign(key, value);
-    }
+    const child = this.createChildScope();
     for (const [name, column] of Object.entries(table.columns)) {
       child.assign(name, column);
     }
@@ -944,7 +962,7 @@ export class Session {
     }
   }
 
-  private keyValue(arg: QValue): QValue {
+  keyValue(arg: QValue): QValue {
     if (arg.kind === "dictionary") {
       return qList(arg.keys, arg.keys.every((key) => key.kind === "symbol"));
     }
@@ -959,7 +977,7 @@ export class Session {
     }
     if (arg.kind === "symbol") {
       if (arg.value === "") {
-        const roots = [...this.env.keys()]
+        const roots = [...this.collectEnvKeys()]
           .filter((name) => name.startsWith("."))
           .map((name) => qSymbol(name));
         return qList(roots, true, "namespaceKeys");
@@ -973,429 +991,31 @@ export class Session {
     throw new QRuntimeError("type", "key expects a dictionary, table, or namespace");
   }
 
-  private installBuiltins() {
-    const register = (name: string, arity: number, impl: BuiltinImpl) => {
-      this.builtins.set(name, {
-        kind: "builtin",
-        name,
-        arity,
-        impl
-      });
-    };
-
-    register("abs", 1, (_, [arg]) => absValue(arg));
-    register("all", 1, (_, [arg]) => allValue(arg));
-    register("any", 1, (_, [arg]) => anyValue(arg));
-    register("avgs", 1, (_, [arg]) => avgsValue(arg));
-    register("til", 1, (_, [arg]) => {
-      const count = toNumber(arg);
-      return qList(Array.from({ length: count }, (_, i) => qInt(i)), true);
-    });
-    register("ceiling", 1, (_, [arg]) => ceilingValue(arg));
-    register("cols", 1, (_, [arg]) => colsValue(arg));
-    register("count", 1, (_, [arg]) => qInt(countValue(arg)));
-    register("desc", 1, (_, [arg]) => descValue(arg));
-    register("differ", 1, (_, [arg]) => differValue(arg));
-    register("exp", 1, (_, [arg]) => numericUnary(arg, Math.exp));
-    register("fills", 1, (_, [arg]) => fillsValue(arg));
-    register("first", 1, (_, [arg]) => firstValue(arg));
-    register("last", 1, (_, [arg]) => lastValue(arg));
-    register("log", 1, (_, [arg]) => numericUnary(arg, Math.log));
-    register("iasc", 1, (_, [arg]) => gradeValue(arg, true));
-    register("idesc", 1, (_, [arg]) => gradeValue(arg, false));
-    register("asc", 1, (_, [arg]) => ascValue(arg));
-    register("asin", 1, (_, [arg]) => unaryNumeric(arg, Math.asin));
-    register("atan", 1, (_, [arg]) => unaryNumeric(arg, Math.atan));
-    register("min", 1, (_, [arg]) => minValue(arg));
-    register("mins", 1, (_, [arg]) => minsValue(arg));
-    register("max", 1, (_, [arg]) => maxValue(arg));
-    register("maxs", 1, (_, [arg]) => maxsValue(arg));
-    register("sum", 1, (_, [arg]) => sumValue(arg));
-    register("avg", 1, (_, [arg]) => avgValue(arg));
-    register("asin", 1, (_, [arg]) => numericUnary(arg, Math.asin));
-    register("acos", 1, (_, [arg]) => numericUnary(arg, Math.acos));
-    register("atan", 1, (_, [arg]) => numericUnary(arg, Math.atan));
-    register("sin", 1, (_, [arg]) => numericUnary(arg, Math.sin));
-    register("cos", 1, (_, [arg]) => numericUnary(arg, Math.cos));
-    register("tan", 1, (_, [arg]) => numericUnary(arg, Math.tan));
-    register("floor", 1, (_, [arg]) => floorValue(arg));
-    register("null", 1, (_, [arg]) => nullValue(arg));
-    register("reciprocal", 1, (_, [arg]) => reciprocalValue(arg));
-    register("reverse", 1, (_, [arg]) => reverseValue(arg));
-    register("signum", 1, (_, [arg]) => signumValue(arg));
-    register("sqrt", 1, (_, [arg]) => numericUnary(arg, Math.sqrt));
-    register("neg", 1, (_, [arg]) => negateValue(arg));
-    register("not", 1, (_, [arg]) => notValue(arg));
-    register("enlist", 1, (_, [arg]) => qList([arg]));
-    register("distinct", 1, (_, [arg]) => distinctValue(arg));
-    register("attr", 1, (_, [arg]) => attrValue(arg));
-    register("flip", 1, (_, [arg]) => flipValue(arg));
-    register("group", 1, (_, [arg]) => groupValue(arg));
-    register("key", 1, (session, [arg]) => session.keyValue(arg));
-    register("keys", 1, (session, [arg]) => session.keyValue(arg));
-    register("lower", 1, (_, [arg]) => lowerValue(arg));
-    register("ltrim", 1, (_, [arg]) => trimStringValue(arg, "left"));
-    register("next", 1, (_, [arg]) => nextValue(arg));
-    register("upper", 1, (_, [arg]) => upperValue(arg));
-    register("prd", 1, (_, [arg]) => productValue(arg));
-    register("prds", 1, (_, [arg]) => prdsValue(arg));
-    register("prev", 1, (_, [arg]) => prevValue(arg));
-    register("raze", 1, (_, args) => {
-      if (args.length === 1) {
-        return razeValue(args[0]!);
-      }
-      return args.slice(1).reduce((acc, item) => razeValue(qList([acc, item])), args[0]!);
-    });
-    register("ratios", 1, (_, [arg]) => ratiosValue(arg));
-    register("rtrim", 1, (_, [arg]) => trimStringValue(arg, "right"));
-    register("var", 1, (_, [arg]) => varianceValue(arg, false));
-    register("svar", 1, (_, [arg]) => varianceValue(arg, true));
-    register("dev", 1, (_, [arg]) => deviationValue(arg, false));
-    register("sdev", 1, (_, [arg]) => deviationValue(arg, true));
-    register("-':", 1, (_, [arg, maybeValues]) =>
-      maybeValues === undefined ? deltasValue(arg) : deltasValue(maybeValues, arg)
-    );
-    this.builtins.set("deltas", this.builtins.get("-':")!);
-    register("string", 1, (_, [arg]) => {
-      if (arg.kind === "list") {
-        return qList(
-          arg.items.map((item) => qString(formatValue(item, { trailingNewline: false }))),
-          false
-        );
-      }
-      return qString(formatValue(arg, { trailingNewline: false }));
-    });
-    register("sums", 1, (_, [arg]) => sumsValue(arg));
-    register("trim", 1, (_, [arg]) => trimStringValue(arg, "both"));
-    register("type", 1, (_, [arg]) => qShort(qTypeNumber(arg)));
-    register("where", 1, (_, [arg]) => whereValue(arg));
-    register("value", 1, (_, [arg]) => arg);
-    register("show", 1, (session, [arg]) => {
-      session.emit(arg);
-      return arg;
-    });
-    register("system", 1, (session, [arg]) => {
-      const text = arg.kind === "string" ? arg.value : formatValue(arg, { trailingNewline: false });
-      if (text.startsWith("P ")) {
-        return qNull();
-      }
-      return session.host.unsupported("system");
-    });
-    register("hopen", 1, (session) => session.host.unsupported("hopen"));
-    register("hclose", 1, (session) => session.host.unsupported("hclose"));
-    register("hcount", 1, (session) => session.host.unsupported("hcount"));
-    register("hdel", 1, (session) => session.host.unsupported("hdel"));
-    register("read0", 1, (session) => session.host.unsupported("read0"));
-    register("read1", 1, (session) => session.host.unsupported("read1"));
-    register("@", 2, (session, [target, arg, handler]) => {
-      const args = arg.kind === "list" && !(arg.homogeneous ?? false) ? arg.items : [arg];
-      try {
-        if (target.kind === "builtin" || target.kind === "lambda" || target.kind === "projection") {
-          return session.invoke(target, args);
-        }
-        return applyValue(target, args);
-      } catch (error) {
-        if (handler === undefined) {
-          throw error;
-        }
-        if (!(error instanceof QRuntimeError)) {
-          throw error;
-        }
-        if (handler.kind === "builtin" || handler.kind === "lambda" || handler.kind === "projection") {
-          return session.invoke(handler, [qString(error.message)]);
-        }
-        return applyValue(handler, [qString(error.message)]);
-      }
-    });
-    register("|:", 1, (_, [arg]) => reverseValue(arg));
-    register("#:", 1, (_, [arg]) => qInt(countValue(arg)));
-    register(".Q.opt", 1, (_, [arg]) => parseQOpt(arg));
-    register(".Q.def", 3, (_, [defaults, parser, raw]) => defineDefaults(defaults, parser, raw));
-    register(".Q.fmt", 3, (_, [width, decimals, value]) => formatQNumber(width, decimals, value));
-    register(".Q.addmonths", 2, (_, [dateValue, monthsValue]) =>
-      mapBinary(dateValue, monthsValue, (dateArg, monthArg) => addMonthsValue(dateArg, monthArg))
-    );
-    register(".Q.atob", 1, (_, [arg]) => atobValue(arg));
-    register(".Q.btoa", 1, (_, [arg]) => btoaValue(arg));
-    register(".Q.s", 1, (_, [arg]) => qString(formatValue(arg)));
-    register(".Q.id", 1, (_, [arg]) => qIdValue(arg));
-    register(".Q.x10", 1, (_, [arg]) => encodeFixedBase(arg, 10, Q_X10_ALPHABET));
-    register(".Q.j10", 1, (_, [arg]) => decodeFixedBase(arg, Q_X10_ALPHABET));
-    register(".Q.x12", 1, (_, [arg]) => encodeFixedBase(arg, 12, Q_X12_ALPHABET));
-    register(".Q.j12", 1, (_, [arg]) => decodeFixedBase(arg, Q_X12_ALPHABET));
-    register(".cx.from", 1, (_, [arg]) => qComplexFromValue(arg));
-    register(".cx.new", 2, (_, [re, im]) => qComplex(toNumber(re), toNumber(im)));
-    register(".cx.z", 2, (_, [re, im]) => qComplex(toNumber(re), toNumber(im)));
-    register(".cx.re", 1, (_, [arg]) => qFloat(complexParts(arg).re));
-    register(".cx.im", 1, (_, [arg]) => qFloat(complexParts(arg).im));
-    register(".cx.conj", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(value.re, -value.im);
-    });
-    register(".cx.neg", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(-value.re, -value.im);
-    });
-    register(".cx.add", 2, (_, [left, right]) => {
-      const a = complexParts(left);
-      const b = complexParts(right);
-      return qComplex(a.re + b.re, a.im + b.im);
-    });
-    register(".cx.sub", 2, (_, [left, right]) => {
-      const a = complexParts(left);
-      const b = complexParts(right);
-      return qComplex(a.re - b.re, a.im - b.im);
-    });
-    register(".cx.mul", 2, (_, [left, right]) => {
-      const a = complexParts(left);
-      const b = complexParts(right);
-      return qComplex(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
-    });
-    register(".cx.div", 2, (_, [left, right]) => {
-      const a = complexParts(left);
-      const b = complexParts(right);
-      const denominator = b.re * b.re + b.im * b.im;
-      if (denominator === 0) {
-        throw new QRuntimeError("domain", "domain");
-      }
-      return qComplex(
-        (a.re * b.re + a.im * b.im) / denominator,
-        (a.im * b.re - a.re * b.im) / denominator
-      );
-    });
-    register(".cx.abs", 1, (_, [arg]) => qFloat(Math.hypot(complexParts(arg).re, complexParts(arg).im)));
-    register(".cx.modulus", 1, (_, [arg]) => qFloat(Math.hypot(complexParts(arg).re, complexParts(arg).im)));
-    register(".cx.floor", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(Math.floor(value.re), Math.floor(value.im));
-    });
-    register(".cx.ceil", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(Math.ceil(value.re), Math.ceil(value.im));
-    });
-    register(".cx.round", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(roundHalfAwayFromZero(value.re), roundHalfAwayFromZero(value.im));
-    });
-    register(".cx.frac", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(value.re - Math.floor(value.re), value.im - Math.floor(value.im));
-    });
-    register(".cx.mod", 2, (_, [left, right]) => complexModulo(left, right));
-    register(".cx.arg", 1, (_, [arg]) => qFloat(complexArg(complexParts(arg))));
-    register(".cx.recip", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const denominator = value.re * value.re + value.im * value.im;
-      if (denominator === 0) {
-        throw new QRuntimeError("domain", "domain");
-      }
-      return qComplex(value.re / denominator, -value.im / denominator);
-    });
-    register(".cx.normalize", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const magnitude = Math.hypot(value.re, value.im);
-      if (magnitude === 0) {
-        throw new QRuntimeError("domain", "domain");
-      }
-      return qComplex(value.re / magnitude, value.im / magnitude);
-    });
-    register(".cx.fromPolar", 2, (_, [radius, theta]) => {
-      const r = toNumber(radius);
-      const angle = toNumber(theta);
-      return qComplex(r * Math.cos(angle), r * Math.sin(angle));
-    });
-    register(".cx.polar", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qDictionary(
-        [qSymbol("r"), qSymbol("theta")],
-        [qFloat(Math.hypot(value.re, value.im)), qFloat(complexArg(value))]
-      );
-    });
-    register(".cx.exp", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const expRe = Math.exp(value.re);
-      return qComplex(expRe * Math.cos(value.im), expRe * Math.sin(value.im));
-    });
-    register(".cx.log", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const magnitude = Math.hypot(value.re, value.im);
-      if (magnitude === 0) {
-        throw new QRuntimeError("domain", "domain");
-      }
-      return qComplex(Math.log(magnitude), complexArg(value));
-    });
-    register(".cx.pow", 2, (_, [left, right]) => {
-      const base = complexParts(left);
-      const exponent = complexParts(right);
-      const magnitude = Math.hypot(base.re, base.im);
-      if (magnitude === 0) {
-        throw new QRuntimeError("domain", "domain");
-      }
-      const logBase = { re: Math.log(magnitude), im: complexArg(base) };
-      const product = {
-        re: exponent.re * logBase.re - exponent.im * logBase.im,
-        im: exponent.re * logBase.im + exponent.im * logBase.re
-      };
-      const expRe = Math.exp(product.re);
-      return qComplex(expRe * Math.cos(product.im), expRe * Math.sin(product.im));
-    });
-    register(".cx.powEach", 2, (_, [left, right]) => {
-      const base = complexParts(left);
-      if (right.kind === "number") {
-        return qComplex(Math.pow(base.re, right.value), Math.pow(base.im, right.value));
-      }
-      const exponent = complexParts(right);
-      return qComplex(Math.pow(base.re, exponent.re), Math.pow(base.im, exponent.im));
-    });
-    register(".cx.sqrt", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const angle = complexArg(value) / 2;
-      return qComplex(Math.sqrt(Math.hypot(value.re, value.im)) * Math.cos(angle), Math.sqrt(Math.hypot(value.re, value.im)) * Math.sin(angle));
-    });
-    register(".cx.sin", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(
-        Math.sin(value.re) * Math.cosh(value.im),
-        Math.cos(value.re) * Math.sinh(value.im)
-      );
-    });
-    register(".cx.cos", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      return qComplex(
-        Math.cos(value.re) * Math.cosh(value.im),
-        -Math.sin(value.re) * Math.sinh(value.im)
-      );
-    });
-    register(".cx.tan", 1, (session, [arg]) => {
-      const sine = session.invoke(session.get(".cx.sin"), [arg]);
-      const cosine = session.invoke(session.get(".cx.cos"), [arg]);
-      return session.invoke(session.get(".cx.div"), [sine, cosine]);
-    });
-    register(".cx.str", 1, (_, [arg]) => {
-      const value = complexParts(arg);
-      const sign = value.im < 0 ? "-" : "+";
-      return qString(`${formatFloat(value.re)} ${sign} ${formatFloat(Math.abs(value.im))}i`);
-    });
-    register("cut", 2, (_, [left, right]) => cutValue(left, right));
-    register("and", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
-    register("cross", 2, (_, [left, right]) => crossValue(left, right));
-    register("over", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
-    register("or", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
-    register("prior", 2, (session, [callable, arg]) => priorValue(session, callable, arg));
-    register("rotate", 2, (_, [left, right]) => rotateValue(left, right));
-    register("scan", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
-    register("ss", 2, (_, [left, right]) => ssValue(left, right));
-    register("sublist", 2, (_, [left, right]) => sublistValue(left, right));
-    register("sv", 2, (_, [left, right]) => svValue(left, right));
-    register("vs", 2, (_, [left, right]) => vsValue(left, right));
-    register("xbar", 2, (_, [left, right]) => xbarValue(left, right));
-    register("xcol", 2, (_, [left, right]) => xcolValue(left, right));
-    register("xexp", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qFloat(Math.pow(toNumber(a), toNumber(b))))
-    );
-    register("like", 2, (_, [left, right]) => likeValue(left, right));
-    register("within", 2, (_, [left, right]) => withinValue(left, right));
-    register("except", 2, (_, [left, right]) => exceptValue(left, right));
-    register("inter", 2, (_, [left, right]) => interValue(left, right));
-    register("union", 2, (_, [left, right]) => unionValue(left, right));
-    register("xlog", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qFloat(Math.log(toNumber(b)) / Math.log(toNumber(a))))
-    );
-    register(",/", 1, (session, args) => {
-      if (args.length === 1) {
-        return razeValue(args[0]!);
-      }
-      const items =
-        args.length === 2 && args[1]?.kind === "list"
-          ? [args[0]!, ...args[1].items]
-          : args;
-      return items.slice(1).reduce((acc, item) => session.invoke(session.get(","), [acc, item]), items[0]!);
-    });
-    register("+/", 1, (session, args) => {
-      const plus = session.get("+");
-      if (args.length === 1) {
-        return reduceValue(session, plus, args[0]!);
-      }
-      if (args.length === 2 && args[1]?.kind === "list") {
-        return reduceValue(session, plus, args[1], args[0]!);
-      }
-      return reduceValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
-    });
-    register("+\\", 1, (session, args) => {
-      const plus = session.get("+");
-      if (args.length === 1) {
-        return scanValue(session, plus, args[0]!);
-      }
-      if (args.length === 2 && args[1]?.kind === "list") {
-        return scanValue(session, plus, args[1], args[0]!);
-      }
-      return scanValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
-    });
-
-    register("+", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => add(a, b)));
-    register("-", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => subtract(a, b)));
-    register("*", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => multiply(a, b)));
-    register("%", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divide(a, b)));
-    register("div", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divValue(a, b)));
-    register("mod", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => modValue(a, b)));
-    register("=", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(equals(a, b))));
-    register("<", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qBool(compare(a, b) < 0))
-    );
-    register(">", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qBool(compare(a, b) > 0))
-    );
-    register("<=", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qBool(compare(a, b) <= 0))
-    );
-    register(">=", 2, (_, [left, right]) =>
-      mapBinary(left, right, (a, b) => qBool(compare(a, b) >= 0))
-    );
-    register(",", 2, (_, [left, right]) => concatValues(left, right));
-    register("!", 2, (_, [left, right]) => {
-      if (left.kind === "list" && right.kind === "list") {
-        return qDictionary(left.items, right.items);
-      }
-      throw new QRuntimeError("type", "Expected two lists for dictionary creation");
-    });
-    register("#", 2, (_, [left, right]) => takeValue(left, right));
-    register("_", 2, (_, [left, right]) => dropValue(left, right));
-    register("~", 2, (_, [left, right]) => qBool(equals(left, right)));
-    register("^", 2, (_, [left, right]) => fillValue(left, right));
-    register("?", 2, (_, [left, right]) => findValue(left, right));
-    register("$", 2, (_, [left, right]) => castValue(left, right));
-    register("|", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
-    register("&", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
-    register("/", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
-    register("\\", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
-  }
-
   private seedNamespaces() {
     const env = this.host.env();
     const now = this.host.now();
     const timezone = this.host.timezone();
     const size = this.host.consoleSize();
 
-    this.env.set(".Q", {
-      kind: "namespace",
-      name: ".Q",
-      entries: new Map<string, QValue>([
+    this.env.set(
+      ".Q",
+      namespaceValue(".Q", [
         ["n", qString("0123456789")],
         ["A", qString("ABCDEFGHIJKLMNOPQRSTUVWXYZ")],
         ["a", qString("abcdefghijklmnopqrstuvwxyz")],
         ["an", qString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789")],
-        ["opt", { kind: "builtin", name: ".Q.opt", arity: 1 }],
-        ["def", { kind: "builtin", name: ".Q.def", arity: 3 }],
-        ["fmt", { kind: "builtin", name: ".Q.fmt", arity: 3 }],
-        ["addmonths", { kind: "builtin", name: ".Q.addmonths", arity: 2 }],
-        ["atob", { kind: "builtin", name: ".Q.atob", arity: 1 }],
-        ["btoa", { kind: "builtin", name: ".Q.btoa", arity: 1 }],
-        ["s", { kind: "builtin", name: ".Q.s", arity: 1 }],
-        ["id", { kind: "builtin", name: ".Q.id", arity: 1 }],
-        ["x10", { kind: "builtin", name: ".Q.x10", arity: 1 }],
-        ["j10", { kind: "builtin", name: ".Q.j10", arity: 1 }],
-        ["x12", { kind: "builtin", name: ".Q.x12", arity: 1 }],
-        ["j12", { kind: "builtin", name: ".Q.j12", arity: 1 }],
+        ["opt", builtinRef(".Q.opt", 1)],
+        ["def", builtinRef(".Q.def", 3)],
+        ["fmt", builtinRef(".Q.fmt", 3)],
+        ["addmonths", builtinRef(".Q.addmonths", 2)],
+        ["atob", builtinRef(".Q.atob", 1)],
+        ["btoa", builtinRef(".Q.btoa", 1)],
+        ["s", builtinRef(".Q.s", 1)],
+        ["id", builtinRef(".Q.id", 1)],
+        ["x10", builtinRef(".Q.x10", 1)],
+        ["j10", builtinRef(".Q.j10", 1)],
+        ["x12", builtinRef(".Q.x12", 1)],
+        ["j12", builtinRef(".Q.j12", 1)],
         ["res", qList(Q_RESERVED_WORDS.map((name) => qSymbol(name)), true)],
         ["b6", qString(Q_X10_ALPHABET)],
         ["nA", qString(Q_X12_ALPHABET)],
@@ -1405,12 +1025,11 @@ export class Session {
         ["rows", qInt(size.rows)],
         ["cols", qInt(size.columns)]
       ])
-    });
+    );
 
-    this.env.set(".z", {
-      kind: "namespace",
-      name: ".z",
-      entries: new Map<string, QValue>([
+    this.env.set(
+      ".z",
+      namespaceValue(".z", [
         ["K", qFloat(5)],
         ["D", qString(now.toISOString().slice(0, 10).replace(/-/g, "."))],
         ["T", qString(now.toTimeString().slice(0, 8))],
@@ -1420,50 +1039,73 @@ export class Session {
         ["x", qList([])],
         ["e", qList(Object.entries(env).map(([k, v]) => qString(`${k}=${v}`)))]
       ])
-    });
+    );
 
-    this.env.set(".cx", {
-      kind: "namespace",
-      name: ".cx",
-      entries: new Map<string, QValue>([
+    this.env.set(
+      ".cx",
+      namespaceValue(".cx", [
         ["_usage", qString(CX_USAGE)],
-        ["from", { kind: "builtin", name: ".cx.from", arity: 1 }],
-        ["new", { kind: "builtin", name: ".cx.new", arity: 2 }],
-        ["z", { kind: "builtin", name: ".cx.z", arity: 2 }],
+        ["from", builtinRef(".cx.from", 1)],
+        ["new", builtinRef(".cx.new", 2)],
+        ["z", builtinRef(".cx.z", 2)],
         ["zero", qComplex(0, 0)],
         ["one", qComplex(1, 0)],
         ["i", qComplex(0, 1)],
-        ["re", { kind: "builtin", name: ".cx.re", arity: 1 }],
-        ["im", { kind: "builtin", name: ".cx.im", arity: 1 }],
-        ["conj", { kind: "builtin", name: ".cx.conj", arity: 1 }],
-        ["neg", { kind: "builtin", name: ".cx.neg", arity: 1 }],
-        ["add", { kind: "builtin", name: ".cx.add", arity: 2 }],
-        ["sub", { kind: "builtin", name: ".cx.sub", arity: 2 }],
-        ["mul", { kind: "builtin", name: ".cx.mul", arity: 2 }],
-        ["div", { kind: "builtin", name: ".cx.div", arity: 2 }],
-        ["abs", { kind: "builtin", name: ".cx.abs", arity: 1 }],
-        ["modulus", { kind: "builtin", name: ".cx.modulus", arity: 1 }],
-        ["floor", { kind: "builtin", name: ".cx.floor", arity: 1 }],
-        ["ceil", { kind: "builtin", name: ".cx.ceil", arity: 1 }],
-        ["round", { kind: "builtin", name: ".cx.round", arity: 1 }],
-        ["frac", { kind: "builtin", name: ".cx.frac", arity: 1 }],
-        ["mod", { kind: "builtin", name: ".cx.mod", arity: 2 }],
-        ["arg", { kind: "builtin", name: ".cx.arg", arity: 1 }],
-        ["recip", { kind: "builtin", name: ".cx.recip", arity: 1 }],
-        ["normalize", { kind: "builtin", name: ".cx.normalize", arity: 1 }],
-        ["fromPolar", { kind: "builtin", name: ".cx.fromPolar", arity: 2 }],
-        ["polar", { kind: "builtin", name: ".cx.polar", arity: 1 }],
-        ["exp", { kind: "builtin", name: ".cx.exp", arity: 1 }],
-        ["log", { kind: "builtin", name: ".cx.log", arity: 1 }],
-        ["pow", { kind: "builtin", name: ".cx.pow", arity: 2 }],
-        ["powEach", { kind: "builtin", name: ".cx.powEach", arity: 2 }],
-        ["sqrt", { kind: "builtin", name: ".cx.sqrt", arity: 1 }],
-        ["sin", { kind: "builtin", name: ".cx.sin", arity: 1 }],
-        ["cos", { kind: "builtin", name: ".cx.cos", arity: 1 }],
-        ["tan", { kind: "builtin", name: ".cx.tan", arity: 1 }],
-        ["str", { kind: "builtin", name: ".cx.str", arity: 1 }]
+        ["re", builtinRef(".cx.re", 1)],
+        ["im", builtinRef(".cx.im", 1)],
+        ["conj", builtinRef(".cx.conj", 1)],
+        ["neg", builtinRef(".cx.neg", 1)],
+        ["add", builtinRef(".cx.add", 2)],
+        ["sub", builtinRef(".cx.sub", 2)],
+        ["mul", builtinRef(".cx.mul", 2)],
+        ["div", builtinRef(".cx.div", 2)],
+        ["abs", builtinRef(".cx.abs", 1)],
+        ["modulus", builtinRef(".cx.modulus", 1)],
+        ["floor", builtinRef(".cx.floor", 1)],
+        ["ceil", builtinRef(".cx.ceil", 1)],
+        ["round", builtinRef(".cx.round", 1)],
+        ["frac", builtinRef(".cx.frac", 1)],
+        ["mod", builtinRef(".cx.mod", 2)],
+        ["arg", builtinRef(".cx.arg", 1)],
+        ["recip", builtinRef(".cx.recip", 1)],
+        ["normalize", builtinRef(".cx.normalize", 1)],
+        ["fromPolar", builtinRef(".cx.fromPolar", 2)],
+        ["polar", builtinRef(".cx.polar", 1)],
+        ["exp", builtinRef(".cx.exp", 1)],
+        ["log", builtinRef(".cx.log", 1)],
+        ["pow", builtinRef(".cx.pow", 2)],
+        ["powEach", builtinRef(".cx.powEach", 2)],
+        ["sqrt", builtinRef(".cx.sqrt", 1)],
+        ["sin", builtinRef(".cx.sin", 1)],
+        ["cos", builtinRef(".cx.cos", 1)],
+        ["tan", builtinRef(".cx.tan", 1)],
+        ["str", builtinRef(".cx.str", 1)]
       ])
-    });
+    );
+  }
+
+  private lookup(name: string): QValue | undefined {
+    const local = this.env.get(name);
+    if (local !== undefined) {
+      return local;
+    }
+    return this.parent?.lookup(name);
+  }
+
+  private collectEnvKeys() {
+    const names = new Set<string>();
+    let current: Session | null = this;
+    while (current) {
+      for (const key of current.env.keys()) {
+        names.add(key);
+      }
+      current = current.parent;
+    }
+    return names;
+  }
+
+  private getRootValue(name: string): QValue | undefined {
+    return this.lookup(`.${name}`) ?? this.lookup(name);
   }
 
   private refreshDynamicNamespaces() {
@@ -1479,10 +1121,7 @@ export class Session {
 
   private getDotted(name: string): QValue {
     const parts = name.replace(/^\./, "").split(".");
-    let current: QValue | undefined = this.env.get(`.${parts[0]}`) ?? this.env.get(parts[0]);
-    if (!current) {
-      current = this.env.get(parts[0]);
-    }
+    let current: QValue | undefined = this.getRootValue(parts[0]!);
     if (!current) {
       throw new QRuntimeError("name", `Unknown identifier: ${name}`);
     }
@@ -1499,6 +1138,384 @@ export class Session {
     return current;
   }
 }
+
+const createBuiltins = (): ReadonlyMap<string, BuiltinEntry> => {
+  const builtins = new Map<string, BuiltinEntry>();
+  const register = (name: string, arity: number, impl: BuiltinImpl) => {
+    builtins.set(name, {
+      kind: "builtin",
+      name,
+      arity,
+      impl
+    });
+  };
+  const registerAlias = (alias: string, target: string) => {
+    builtins.set(alias, builtins.get(target)!);
+  };
+  const registerUnsupported = (...names: string[]) => {
+    for (const name of names) {
+      register(name, 1, (session) => session.unsupported(name));
+    }
+  };
+
+  register("abs", 1, (_, [arg]) => absValue(arg));
+  register("all", 1, (_, [arg]) => allValue(arg));
+  register("any", 1, (_, [arg]) => anyValue(arg));
+  register("avgs", 1, (_, [arg]) => avgsValue(arg));
+  register("til", 1, (_, [arg]) => qList(Array.from({ length: toNumber(arg) }, (_, i) => qInt(i)), true));
+  register("ceiling", 1, (_, [arg]) => ceilingValue(arg));
+  register("cols", 1, (_, [arg]) => colsValue(arg));
+  register("count", 1, (_, [arg]) => qInt(countValue(arg)));
+  register("desc", 1, (_, [arg]) => descValue(arg));
+  register("differ", 1, (_, [arg]) => differValue(arg));
+  register("exp", 1, (_, [arg]) => numericUnary(arg, Math.exp));
+  register("fills", 1, (_, [arg]) => fillsValue(arg));
+  register("first", 1, (_, [arg]) => firstValue(arg));
+  register("last", 1, (_, [arg]) => lastValue(arg));
+  register("log", 1, (_, [arg]) => numericUnary(arg, Math.log));
+  register("iasc", 1, (_, [arg]) => gradeValue(arg, true));
+  register("idesc", 1, (_, [arg]) => gradeValue(arg, false));
+  register("asc", 1, (_, [arg]) => ascValue(arg));
+  register("asin", 1, (_, [arg]) => numericUnary(arg, Math.asin));
+  register("acos", 1, (_, [arg]) => numericUnary(arg, Math.acos));
+  register("atan", 1, (_, [arg]) => numericUnary(arg, Math.atan));
+  register("min", 1, (_, [arg]) => minValue(arg));
+  register("mins", 1, (_, [arg]) => minsValue(arg));
+  register("max", 1, (_, [arg]) => maxValue(arg));
+  register("maxs", 1, (_, [arg]) => maxsValue(arg));
+  register("sum", 1, (_, [arg]) => sumValue(arg));
+  register("avg", 1, (_, [arg]) => avgValue(arg));
+  register("sin", 1, (_, [arg]) => numericUnary(arg, Math.sin));
+  register("cos", 1, (_, [arg]) => numericUnary(arg, Math.cos));
+  register("tan", 1, (_, [arg]) => numericUnary(arg, Math.tan));
+  register("floor", 1, (_, [arg]) => floorValue(arg));
+  register("null", 1, (_, [arg]) => nullValue(arg));
+  register("reciprocal", 1, (_, [arg]) => reciprocalValue(arg));
+  register("reverse", 1, (_, [arg]) => reverseValue(arg));
+  register("signum", 1, (_, [arg]) => signumValue(arg));
+  register("sqrt", 1, (_, [arg]) => numericUnary(arg, Math.sqrt));
+  register("neg", 1, (_, [arg]) => negateValue(arg));
+  register("not", 1, (_, [arg]) => notValue(arg));
+  register("enlist", 1, (_, [arg]) => qList([arg]));
+  register("distinct", 1, (_, [arg]) => distinctValue(arg));
+  register("attr", 1, (_, [arg]) => attrValue(arg));
+  register("flip", 1, (_, [arg]) => flipValue(arg));
+  register("group", 1, (_, [arg]) => groupValue(arg));
+  register("key", 1, (session, [arg]) => session.keyValue(arg));
+  registerAlias("keys", "key");
+  register("lower", 1, (_, [arg]) => lowerValue(arg));
+  register("ltrim", 1, (_, [arg]) => trimStringValue(arg, "left"));
+  register("next", 1, (_, [arg]) => nextValue(arg));
+  register("upper", 1, (_, [arg]) => upperValue(arg));
+  register("prd", 1, (_, [arg]) => productValue(arg));
+  register("prds", 1, (_, [arg]) => prdsValue(arg));
+  register("prev", 1, (_, [arg]) => prevValue(arg));
+  register("raze", 1, (_, args) =>
+    args.length === 1 ? razeValue(args[0]!) : args.slice(1).reduce((acc, item) => razeValue(qList([acc, item])), args[0]!)
+  );
+  register("ratios", 1, (_, [arg]) => ratiosValue(arg));
+  register("rtrim", 1, (_, [arg]) => trimStringValue(arg, "right"));
+  register("var", 1, (_, [arg]) => varianceValue(arg, false));
+  register("svar", 1, (_, [arg]) => varianceValue(arg, true));
+  register("dev", 1, (_, [arg]) => deviationValue(arg, false));
+  register("sdev", 1, (_, [arg]) => deviationValue(arg, true));
+  register("-':", 1, (_, [arg, maybeValues]) =>
+    maybeValues === undefined ? deltasValue(arg) : deltasValue(maybeValues, arg)
+  );
+  registerAlias("deltas", "-':");
+  register("string", 1, (_, [arg]) =>
+    arg.kind === "list"
+      ? qList(arg.items.map((item) => qString(formatValue(item, { trailingNewline: false }))), false)
+      : qString(formatValue(arg, { trailingNewline: false }))
+  );
+  register("sums", 1, (_, [arg]) => sumsValue(arg));
+  register("trim", 1, (_, [arg]) => trimStringValue(arg, "both"));
+  register("type", 1, (_, [arg]) => qShort(qTypeNumber(arg)));
+  register("where", 1, (_, [arg]) => whereValue(arg));
+  register("value", 1, (_, [arg]) => arg);
+  register("show", 1, (session, [arg]) => {
+    session.emit(arg);
+    return arg;
+  });
+  register("system", 1, (session, [arg]) => {
+    const text = arg.kind === "string" ? arg.value : formatValue(arg, { trailingNewline: false });
+    if (text.startsWith("P ")) {
+      return qNull();
+    }
+    return session.unsupported("system");
+  });
+  registerUnsupported("hopen", "hclose", "hcount", "hdel", "read0", "read1");
+  register("@", 2, (session, [target, arg, handler]) => {
+    const args = arg.kind === "list" && !(arg.homogeneous ?? false) ? arg.items : [arg];
+    try {
+      if (target.kind === "builtin" || target.kind === "lambda" || target.kind === "projection") {
+        return session.invoke(target, args);
+      }
+      return applyValue(target, args);
+    } catch (error) {
+      if (handler === undefined) {
+        throw error;
+      }
+      if (!(error instanceof QRuntimeError)) {
+        throw error;
+      }
+      if (handler.kind === "builtin" || handler.kind === "lambda" || handler.kind === "projection") {
+        return session.invoke(handler, [qString(error.message)]);
+      }
+      return applyValue(handler, [qString(error.message)]);
+    }
+  });
+  register("|:", 1, (_, [arg]) => reverseValue(arg));
+  register("#:", 1, (_, [arg]) => qInt(countValue(arg)));
+  register(".Q.opt", 1, (_, [arg]) => parseQOpt(arg));
+  register(".Q.def", 3, (_, [defaults, parser, raw]) => defineDefaults(defaults, parser, raw));
+  register(".Q.fmt", 3, (_, [width, decimals, value]) => formatQNumber(width, decimals, value));
+  register(".Q.addmonths", 2, (_, [dateValue, monthsValue]) =>
+    mapBinary(dateValue, monthsValue, (dateArg, monthArg) => addMonthsValue(dateArg, monthArg))
+  );
+  register(".Q.atob", 1, (_, [arg]) => atobValue(arg));
+  register(".Q.btoa", 1, (_, [arg]) => btoaValue(arg));
+  register(".Q.s", 1, (_, [arg]) => qString(formatValue(arg)));
+  register(".Q.id", 1, (_, [arg]) => qIdValue(arg));
+  register(".Q.x10", 1, (_, [arg]) => encodeFixedBase(arg, 10, Q_X10_ALPHABET));
+  register(".Q.j10", 1, (_, [arg]) => decodeFixedBase(arg, Q_X10_ALPHABET));
+  register(".Q.x12", 1, (_, [arg]) => encodeFixedBase(arg, 12, Q_X12_ALPHABET));
+  register(".Q.j12", 1, (_, [arg]) => decodeFixedBase(arg, Q_X12_ALPHABET));
+  register(".cx.from", 1, (_, [arg]) => qComplexFromValue(arg));
+  register(".cx.new", 2, (_, [re, im]) => qComplex(toNumber(re), toNumber(im)));
+  register(".cx.z", 2, (_, [re, im]) => qComplex(toNumber(re), toNumber(im)));
+  register(".cx.re", 1, (_, [arg]) => qFloat(complexParts(arg).re));
+  register(".cx.im", 1, (_, [arg]) => qFloat(complexParts(arg).im));
+  register(".cx.conj", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(value.re, -value.im);
+  });
+  register(".cx.neg", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(-value.re, -value.im);
+  });
+  register(".cx.add", 2, (_, [left, right]) => {
+    const a = complexParts(left);
+    const b = complexParts(right);
+    return qComplex(a.re + b.re, a.im + b.im);
+  });
+  register(".cx.sub", 2, (_, [left, right]) => {
+    const a = complexParts(left);
+    const b = complexParts(right);
+    return qComplex(a.re - b.re, a.im - b.im);
+  });
+  register(".cx.mul", 2, (_, [left, right]) => {
+    const a = complexParts(left);
+    const b = complexParts(right);
+    return qComplex(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+  });
+  register(".cx.div", 2, (_, [left, right]) => {
+    const a = complexParts(left);
+    const b = complexParts(right);
+    const denominator = b.re * b.re + b.im * b.im;
+    if (denominator === 0) {
+      throw new QRuntimeError("domain", "domain");
+    }
+    return qComplex(
+      (a.re * b.re + a.im * b.im) / denominator,
+      (a.im * b.re - a.re * b.im) / denominator
+    );
+  });
+  register(".cx.abs", 1, (_, [arg]) => qFloat(Math.hypot(complexParts(arg).re, complexParts(arg).im)));
+  register(".cx.modulus", 1, (_, [arg]) => qFloat(Math.hypot(complexParts(arg).re, complexParts(arg).im)));
+  register(".cx.floor", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(Math.floor(value.re), Math.floor(value.im));
+  });
+  register(".cx.ceil", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(Math.ceil(value.re), Math.ceil(value.im));
+  });
+  register(".cx.round", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(roundHalfAwayFromZero(value.re), roundHalfAwayFromZero(value.im));
+  });
+  register(".cx.frac", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(value.re - Math.floor(value.re), value.im - Math.floor(value.im));
+  });
+  register(".cx.mod", 2, (_, [left, right]) => complexModulo(left, right));
+  register(".cx.arg", 1, (_, [arg]) => qFloat(complexArg(complexParts(arg))));
+  register(".cx.recip", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const denominator = value.re * value.re + value.im * value.im;
+    if (denominator === 0) {
+      throw new QRuntimeError("domain", "domain");
+    }
+    return qComplex(value.re / denominator, -value.im / denominator);
+  });
+  register(".cx.normalize", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const magnitude = Math.hypot(value.re, value.im);
+    if (magnitude === 0) {
+      throw new QRuntimeError("domain", "domain");
+    }
+    return qComplex(value.re / magnitude, value.im / magnitude);
+  });
+  register(".cx.fromPolar", 2, (_, [radius, theta]) => {
+    const r = toNumber(radius);
+    const angle = toNumber(theta);
+    return qComplex(r * Math.cos(angle), r * Math.sin(angle));
+  });
+  register(".cx.polar", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qDictionary(
+      [qSymbol("r"), qSymbol("theta")],
+      [qFloat(Math.hypot(value.re, value.im)), qFloat(complexArg(value))]
+    );
+  });
+  register(".cx.exp", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const expRe = Math.exp(value.re);
+    return qComplex(expRe * Math.cos(value.im), expRe * Math.sin(value.im));
+  });
+  register(".cx.log", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const magnitude = Math.hypot(value.re, value.im);
+    if (magnitude === 0) {
+      throw new QRuntimeError("domain", "domain");
+    }
+    return qComplex(Math.log(magnitude), complexArg(value));
+  });
+  register(".cx.pow", 2, (_, [left, right]) => {
+    const base = complexParts(left);
+    const exponent = complexParts(right);
+    const magnitude = Math.hypot(base.re, base.im);
+    if (magnitude === 0) {
+      throw new QRuntimeError("domain", "domain");
+    }
+    const logBase = { re: Math.log(magnitude), im: complexArg(base) };
+    const product = {
+      re: exponent.re * logBase.re - exponent.im * logBase.im,
+      im: exponent.re * logBase.im + exponent.im * logBase.re
+    };
+    const expRe = Math.exp(product.re);
+    return qComplex(expRe * Math.cos(product.im), expRe * Math.sin(product.im));
+  });
+  register(".cx.powEach", 2, (_, [left, right]) => {
+    const base = complexParts(left);
+    if (right.kind === "number") {
+      return qComplex(Math.pow(base.re, right.value), Math.pow(base.im, right.value));
+    }
+    const exponent = complexParts(right);
+    return qComplex(Math.pow(base.re, exponent.re), Math.pow(base.im, exponent.im));
+  });
+  register(".cx.sqrt", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const angle = complexArg(value) / 2;
+    return qComplex(
+      Math.sqrt(Math.hypot(value.re, value.im)) * Math.cos(angle),
+      Math.sqrt(Math.hypot(value.re, value.im)) * Math.sin(angle)
+    );
+  });
+  register(".cx.sin", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(Math.sin(value.re) * Math.cosh(value.im), Math.cos(value.re) * Math.sinh(value.im));
+  });
+  register(".cx.cos", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    return qComplex(Math.cos(value.re) * Math.cosh(value.im), -Math.sin(value.re) * Math.sinh(value.im));
+  });
+  register(".cx.tan", 1, (session, [arg]) => {
+    const sine = session.invoke(session.get(".cx.sin"), [arg]);
+    const cosine = session.invoke(session.get(".cx.cos"), [arg]);
+    return session.invoke(session.get(".cx.div"), [sine, cosine]);
+  });
+  register(".cx.str", 1, (_, [arg]) => {
+    const value = complexParts(arg);
+    const sign = value.im < 0 ? "-" : "+";
+    return qString(`${formatFloat(value.re)} ${sign} ${formatFloat(Math.abs(value.im))}i`);
+  });
+  register("cut", 2, (_, [left, right]) => cutValue(left, right));
+  register("and", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
+  register("cross", 2, (_, [left, right]) => crossValue(left, right));
+  register("over", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
+  register("or", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
+  register("prior", 2, (session, [callable, arg]) => priorValue(session, callable, arg));
+  register("rotate", 2, (_, [left, right]) => rotateValue(left, right));
+  register("scan", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
+  register("ss", 2, (_, [left, right]) => ssValue(left, right));
+  register("sublist", 2, (_, [left, right]) => sublistValue(left, right));
+  register("sv", 2, (_, [left, right]) => svValue(left, right));
+  register("vs", 2, (_, [left, right]) => vsValue(left, right));
+  register("xbar", 2, (_, [left, right]) => xbarValue(left, right));
+  register("xcol", 2, (_, [left, right]) => xcolValue(left, right));
+  register("xexp", 2, (_, [left, right]) =>
+    mapBinary(left, right, (a, b) => qFloat(Math.pow(toNumber(a), toNumber(b))))
+  );
+  register("like", 2, (_, [left, right]) => likeValue(left, right));
+  register("within", 2, (_, [left, right]) => withinValue(left, right));
+  register("except", 2, (_, [left, right]) => exceptValue(left, right));
+  register("inter", 2, (_, [left, right]) => interValue(left, right));
+  register("union", 2, (_, [left, right]) => unionValue(left, right));
+  register("xlog", 2, (_, [left, right]) =>
+    mapBinary(left, right, (a, b) => qFloat(Math.log(toNumber(b)) / Math.log(toNumber(a))))
+  );
+  register(",/", 1, (session, args) => {
+    if (args.length === 1) {
+      return razeValue(args[0]!);
+    }
+    const items = args.length === 2 && args[1]?.kind === "list" ? [args[0]!, ...args[1].items] : args;
+    return items.slice(1).reduce((acc, item) => session.invoke(session.get(","), [acc, item]), items[0]!);
+  });
+  register("+/", 1, (session, args) => {
+    const plus = session.get("+");
+    if (args.length === 1) {
+      return reduceValue(session, plus, args[0]!);
+    }
+    if (args.length === 2 && args[1]?.kind === "list") {
+      return reduceValue(session, plus, args[1], args[0]!);
+    }
+    return reduceValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
+  });
+  register("+\\", 1, (session, args) => {
+    const plus = session.get("+");
+    if (args.length === 1) {
+      return scanValue(session, plus, args[0]!);
+    }
+    if (args.length === 2 && args[1]?.kind === "list") {
+      return scanValue(session, plus, args[1], args[0]!);
+    }
+    return scanValue(session, plus, qList(args, args.every((arg) => arg.kind === args[0]?.kind)));
+  });
+
+  register("+", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => add(a, b)));
+  register("-", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => subtract(a, b)));
+  register("*", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => multiply(a, b)));
+  register("%", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divide(a, b)));
+  register("div", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divValue(a, b)));
+  register("mod", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => modValue(a, b)));
+  register("=", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(equals(a, b))));
+  register("<", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(compare(a, b) < 0)));
+  register(">", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(compare(a, b) > 0)));
+  register("<=", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(compare(a, b) <= 0)));
+  register(">=", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(compare(a, b) >= 0)));
+  register(",", 2, (_, [left, right]) => concatValues(left, right));
+  register("!", 2, (_, [left, right]) => {
+    if (left.kind === "list" && right.kind === "list") {
+      return qDictionary(left.items, right.items);
+    }
+    throw new QRuntimeError("type", "Expected two lists for dictionary creation");
+  });
+  register("#", 2, (_, [left, right]) => takeValue(left, right));
+  register("_", 2, (_, [left, right]) => dropValue(left, right));
+  register("~", 2, (_, [left, right]) => qBool(equals(left, right)));
+  register("^", 2, (_, [left, right]) => fillValue(left, right));
+  register("?", 2, (_, [left, right]) => findValue(left, right));
+  register("$", 2, (_, [left, right]) => castValue(left, right));
+  register("|", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => maxPair(a, b)));
+  register("&", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => minPair(a, b)));
+  register("/", 2, (session, [callable, arg, seed]) => reduceValue(session, callable, arg, seed));
+  register("\\", 2, (session, [callable, arg, seed]) => scanValue(session, callable, arg, seed));
+  return builtins;
+};
+
+const SHARED_BUILTINS = createBuiltins();
 
 export const createSession = (host?: HostAdapter) => new Session(host);
 
