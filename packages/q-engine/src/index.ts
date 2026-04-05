@@ -57,10 +57,17 @@ export type AstNode =
   | {
       kind: "select";
       columns: { name: string | null; value: AstNode }[] | null;
+      by: { name: string | null; value: AstNode }[] | null;
       source: AstNode;
       where: AstNode | null;
     }
-  | { kind: "exec"; value: AstNode; source: AstNode; where: AstNode | null }
+  | {
+      kind: "exec";
+      value: AstNode;
+      by: { name: string | null; value: AstNode }[] | null;
+      source: AstNode;
+      where: AstNode | null;
+    }
   | {
       kind: "update";
       updates: { name: string; value: AstNode }[];
@@ -106,6 +113,7 @@ const MONAD_KEYWORDS = new Set([
   "mins",
   "max",
   "maxs",
+  "med",
   "asc",
   "iasc",
   "idesc",
@@ -172,6 +180,10 @@ const WORD_DIAD_KEYWORDS = new Set([
   "cross",
   "cut",
   "div",
+  "mavg",
+  "mcount",
+  "mdev",
+  "msum",
   "in",
   "except",
   "inter",
@@ -608,15 +620,16 @@ export class Session {
     }
 
     if (callee.kind === "projection") {
-      return qProjection(callee.target, this.mergeProjectionArgs(callee.args, args, callee.arity), callee.arity);
+      const merged = this.mergeProjectionArgs(callee.args, args, callee.arity);
+      return qProjection(callee.target, merged, Math.max(callee.arity, merged.length));
     }
 
     if (callee.kind === "builtin") {
-      return qProjection(callee, [...args], callee.arity);
+      return qProjection(callee, [...args], Math.max(callee.arity, args.length));
     }
 
     if (callee.kind === "lambda") {
-      return qProjection(callee, [...args], lambdaArity(callee as LambdaValue));
+      return qProjection(callee, [...args], Math.max(lambdaArity(callee as LambdaValue), args.length));
     }
 
     return applyValue(
@@ -738,9 +751,142 @@ export class Session {
     if (result.kind !== "list") {
       throw new QRuntimeError("type", "where expects a boolean vector");
     }
+    if (!result.items.every((item) => item.kind === "boolean")) {
+      throw new QRuntimeError("type", "where expects a boolean vector");
+    }
 
     return result.items.flatMap((item, index) =>
       item.kind === "boolean" && item.value ? [index] : []
+    );
+  }
+
+  private groupTableRows(
+    table: QTable,
+    positions: number[],
+    by: { name: string | null; value: AstNode }[]
+  ) {
+    const rowCount = tableRowCount(table);
+    const context = this.createTableContext(table, positions);
+    const names = qsqlColumnNames(by);
+    const keyColumns = by.map((column, index) => ({
+      name: names[index]!,
+      value: materializeTableColumn(context.eval(column.value), rowCount)
+    }));
+
+    const groups: { keyValues: QValue[]; positions: number[] }[] = [];
+    for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+      const keyValues = keyColumns.map(
+        (column) => column.value.items[rowIndex] ?? nullLike(column.value.items[0])
+      );
+      const existing = groups.find((group) =>
+        group.keyValues.every((candidate, index) => equals(candidate, keyValues[index]!))
+      );
+      if (existing) {
+        existing.positions.push(rowIndex);
+        continue;
+      }
+      groups.push({ keyValues, positions: [rowIndex] });
+    }
+
+    return { keyColumns, groups };
+  }
+
+  private buildGroupedKeyTable(
+    columns: { name: string; value: QList }[],
+    groups: { keyValues: QValue[] }[]
+  ) {
+    return buildTable(
+      columns.map((column, index) => ({
+        name: column.name,
+        value: qList(
+          groups.map((group) => group.keyValues[index]!),
+          column.value.homogeneous ?? false,
+          column.value.attribute
+        )
+      }))
+    );
+  }
+
+  private evalGroupedSelect(
+    source: QTable,
+    sourcePositions: number[],
+    columns: { name: string | null; value: AstNode }[] | null,
+    by: { name: string | null; value: AstNode }[]
+  ): QValue {
+    const grouping = this.groupTableRows(source, sourcePositions, by);
+    const selectColumns =
+      columns ??
+      Object.keys(source.columns)
+        .filter(
+          (name) =>
+            !by.some(
+              (column) =>
+                column.name === name ||
+                (column.value.kind === "identifier" && column.value.name === name)
+            )
+        )
+        .map((name) => ({ name: null, value: { kind: "identifier", name } as AstNode }));
+    const valueNames = qsqlColumnNames(selectColumns);
+    const resultCells = selectColumns.map(() => [] as QValue[]);
+
+    for (const group of grouping.groups) {
+      const subgroup = selectTableRows(source, group.positions);
+      const subgroupPositions = group.positions.map((index) => sourcePositions[index]!);
+      const context = this.createTableContext(subgroup, subgroupPositions);
+      selectColumns.forEach((column, index) => {
+        resultCells[index]!.push(context.eval(column.value));
+      });
+    }
+
+    return qKeyedTable(
+      this.buildGroupedKeyTable(grouping.keyColumns, grouping.groups),
+      buildTable(
+        selectColumns.map((_, index) => ({
+          name: valueNames[index]!,
+          value: qList(
+            resultCells[index]!,
+            resultCells[index]!.every((item) => item.kind === resultCells[index]?.[0]?.kind)
+          )
+        }))
+      )
+    );
+  }
+
+  private evalGroupedExec(
+    source: QTable,
+    sourcePositions: number[],
+    valueNode: AstNode,
+    by: { name: string | null; value: AstNode }[]
+  ): QValue {
+    const grouping = this.groupTableRows(source, sourcePositions, by);
+    const valueExpression =
+      valueNode.kind === "assign" || valueNode.kind === "assignGlobal" ? valueNode.value : valueNode;
+    const valueName =
+      valueNode.kind === "assign" || valueNode.kind === "assignGlobal" ? valueNode.name : "";
+    const values: QValue[] = [];
+
+    for (const group of grouping.groups) {
+      const subgroup = selectTableRows(source, group.positions);
+      const subgroupPositions = group.positions.map((index) => sourcePositions[index]!);
+      const context = this.createTableContext(subgroup, subgroupPositions);
+      values.push(context.eval(valueExpression));
+    }
+
+    if (grouping.keyColumns.length === 1) {
+      return qDictionary(
+        grouping.groups.map((group) => group.keyValues[0]!),
+        values
+      );
+    }
+
+    return qKeyedTable(
+      this.buildGroupedKeyTable(grouping.keyColumns, grouping.groups),
+      buildTable([
+        {
+          name: valueName,
+          value: qList(values, values.every((item) => item.kind === values[0]?.kind))
+        }
+      ])
     );
   }
 
@@ -752,20 +898,27 @@ export class Session {
 
     const positions = this.resolveTableRows(source, node.where);
     const filtered = selectTableRows(source, positions);
+    if (node.by && node.by.length > 0) {
+      return this.evalGroupedSelect(filtered, positions, node.columns, node.by);
+    }
     if (!node.columns) {
       return filtered;
     }
 
     const context = this.createTableContext(filtered, positions);
-    const columns = node.columns.map((column) => {
-      const value = context.eval(column.value);
-      return {
-        name:
-          column.name ??
-          (column.value.kind === "identifier" ? column.value.name : renderAst(column.value)),
-        value: materializeTableColumn(value, tableRowCount(filtered))
-      };
-    });
+    const rowCount = tableRowCount(filtered);
+    const names = qsqlColumnNames(node.columns);
+    const values = node.columns.map((column) => context.eval(column.value));
+    const aggregateMode = isQsqlAggregateExpression(node.columns[0]?.value ?? null);
+
+    if (!aggregateMode && !values.some((value) => value.kind === "list" && value.items.length === rowCount)) {
+      throw new QRuntimeError("rank", "select result must be row-wise or aggregate");
+    }
+
+    const columns = node.columns.map((_, index) => ({
+      name: names[index]!,
+      value: aggregateMode ? qList([values[index]!], false) : materializeTableColumn(values[index]!, rowCount)
+    }));
     return buildTable(columns);
   }
 
@@ -777,6 +930,9 @@ export class Session {
 
     const positions = this.resolveTableRows(source, node.where);
     const filtered = selectTableRows(source, positions);
+    if (node.by && node.by.length > 0) {
+      return this.evalGroupedExec(filtered, positions, node.value, node.by);
+    }
     const context = this.createTableContext(filtered, positions);
     return context.eval(node.value);
   }
@@ -897,6 +1053,8 @@ export class Session {
         }
         return applyValue(left, args);
       }
+      case "@'":
+        return applyEachValue(this, left, right);
       case "\\":
         return scanValue(this, left, right);
       case "+/":
@@ -939,6 +1097,14 @@ export class Session {
         return cutValue(left, right);
       case "div":
         return mapBinary(left, right, (a, b) => divValue(a, b));
+      case "mavg":
+        return movingValue(left, right, avgValue, false);
+      case "mcount":
+        return movingValue(left, right, movingCountValue, true);
+      case "mdev":
+        return movingValue(left, right, (window) => deviationValue(window, false), false);
+      case "msum":
+        return movingValue(left, right, sumValue, false);
       case "mod":
         return mapBinary(left, right, (a, b) => modValue(a, b));
       case "rotate":
@@ -1006,6 +1172,7 @@ export class Session {
         ["an", qString("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789")],
         ["opt", builtinRef(".Q.opt", 1)],
         ["def", builtinRef(".Q.def", 3)],
+        ["f", builtinRef(".Q.f", 2)],
         ["fmt", builtinRef(".Q.fmt", 3)],
         ["addmonths", builtinRef(".Q.addmonths", 2)],
         ["atob", builtinRef(".Q.atob", 1)],
@@ -1183,6 +1350,7 @@ const createBuiltins = (): ReadonlyMap<string, BuiltinEntry> => {
   register("mins", 1, (_, [arg]) => minsValue(arg));
   register("max", 1, (_, [arg]) => maxValue(arg));
   register("maxs", 1, (_, [arg]) => maxsValue(arg));
+  register("med", 1, (_, [arg]) => medianValue(arg));
   register("sum", 1, (_, [arg]) => sumValue(arg));
   register("avg", 1, (_, [arg]) => avgValue(arg));
   register("sin", 1, (_, [arg]) => numericUnary(arg, Math.sin));
@@ -1223,16 +1391,13 @@ const createBuiltins = (): ReadonlyMap<string, BuiltinEntry> => {
     maybeValues === undefined ? deltasValue(arg) : deltasValue(maybeValues, arg)
   );
   registerAlias("deltas", "-':");
-  register("string", 1, (_, [arg]) =>
-    arg.kind === "list"
-      ? qList(arg.items.map((item) => qString(formatValue(item, { trailingNewline: false }))), false)
-      : qString(formatValue(arg, { trailingNewline: false }))
-  );
+  register("string", 1, (_, [arg]) => stringValue(arg));
   register("sums", 1, (_, [arg]) => sumsValue(arg));
   register("trim", 1, (_, [arg]) => trimStringValue(arg, "both"));
   register("type", 1, (_, [arg]) => qShort(qTypeNumber(arg)));
   register("where", 1, (_, [arg]) => whereValue(arg));
   register("value", 1, (_, [arg]) => arg);
+  register("::", 1, (_, [arg]) => arg);
   register("show", 1, (session, [arg]) => {
     session.emit(arg);
     return arg;
@@ -1269,6 +1434,7 @@ const createBuiltins = (): ReadonlyMap<string, BuiltinEntry> => {
   register("#:", 1, (_, [arg]) => qInt(countValue(arg)));
   register(".Q.opt", 1, (_, [arg]) => parseQOpt(arg));
   register(".Q.def", 3, (_, [defaults, parser, raw]) => defineDefaults(defaults, parser, raw));
+  register(".Q.f", 2, (_, [decimals, value]) => qString(toNumber(value).toFixed(toNumber(decimals))));
   register(".Q.fmt", 3, (_, [width, decimals, value]) => formatQNumber(width, decimals, value));
   register(".Q.addmonths", 2, (_, [dateValue, monthsValue]) =>
     mapBinary(dateValue, monthsValue, (dateArg, monthArg) => addMonthsValue(dateArg, monthArg))
@@ -1489,6 +1655,12 @@ const createBuiltins = (): ReadonlyMap<string, BuiltinEntry> => {
   register("*", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => multiply(a, b)));
   register("%", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divide(a, b)));
   register("div", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => divValue(a, b)));
+  register("mavg", 2, (_, [left, right]) => movingValue(left, right, avgValue, false));
+  register("mcount", 2, (_, [left, right]) => movingValue(left, right, movingCountValue, true));
+  register("mdev", 2, (_, [left, right]) =>
+    movingValue(left, right, (window) => deviationValue(window, false), false)
+  );
+  register("msum", 2, (_, [left, right]) => movingValue(left, right, sumValue, false));
   register("mod", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => modValue(a, b)));
   register("=", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(equals(a, b))));
   register("<", 2, (_, [left, right]) => mapBinary(left, right, (a, b) => qBool(compare(a, b) < 0)));
@@ -1551,6 +1723,7 @@ export const listBuiltins = () => ({
     "mins",
     "max",
     "maxs",
+    "med",
     "asc",
     "iasc",
     "idesc",
@@ -1626,6 +1799,10 @@ export const listBuiltins = () => ({
     "_",
     "~",
     "div",
+    "mavg",
+    "mcount",
+    "mdev",
+    "msum",
     "mod",
     "^",
     "?",
@@ -1717,22 +1894,26 @@ export class Parser {
 
   private parseSelectExpression(): AstNode {
     this.consume("identifier", "select");
-    const columns = this.peek().kind === "identifier" && this.peek().value === "from"
+    const columns =
+      this.peek().kind === "identifier" &&
+      (this.peek().value === "from" || this.peek().value === "by")
       ? null
-      : this.parseSelectColumns();
+      : this.parseSelectColumns(["by", "from"]);
+    const by = this.parseOptionalByClause();
     this.consume("identifier", "from");
     const source = this.withStopIdentifiers(["where"], () => this.parseAssignment());
     const where = this.parseOptionalWhereClause();
-    return { kind: "select", columns, source, where };
+    return { kind: "select", columns, by, source, where };
   }
 
   private parseExecExpression(): AstNode {
     this.consume("identifier", "exec");
-    const value = this.withStopIdentifiers(["from"], () => this.parseAssignment());
+    const value = this.withStopIdentifiers(["by", "from"], () => this.parseAssignment());
+    const by = this.parseOptionalByClause();
     this.consume("identifier", "from");
     const source = this.withStopIdentifiers(["where"], () => this.parseAssignment());
     const where = this.parseOptionalWhereClause();
-    return { kind: "exec", value, source, where };
+    return { kind: "exec", value, by, source, where };
   }
 
   private parseUpdateExpression(): AstNode {
@@ -1756,11 +1937,11 @@ export class Parser {
     return { kind: "delete", columns, source, where };
   }
 
-  private parseSelectColumns() {
+  private parseSelectColumns(stopIdentifiers: string[] = ["from"]) {
     const columns: { name: string | null; value: AstNode }[] = [];
     while (!this.match("eof")) {
       const value = this.withStopOperators([","], () =>
-        this.withStopIdentifiers(["from"], () => this.parseAssignment())
+        this.withStopIdentifiers(stopIdentifiers, () => this.parseAssignment())
       );
       columns.push(value.kind === "assign" ? { name: value.name, value: value.value } : { name: null, value });
       if (this.peek().kind === "operator" && this.peek().value === ",") {
@@ -1811,6 +1992,14 @@ export class Parser {
     if (this.peek().kind === "identifier" && this.peek().value === "where") {
       this.consume("identifier", "where");
       return this.parseAssignment();
+    }
+    return null;
+  }
+
+  private parseOptionalByClause() {
+    if (this.peek().kind === "identifier" && this.peek().value === "by") {
+      this.consume("identifier", "by");
+      return this.parseSelectColumns(["from"]);
     }
     return null;
   }
@@ -1966,7 +2155,7 @@ export class Parser {
         continue;
       }
       adjacent.push(this.parseAdjacentArgument());
-      if (this.peek().kind === "lbracket") {
+      while (this.peek().kind === "lbracket") {
         const nestedArgs = this.parseBracketArgs();
         const last = adjacent.pop()!;
         adjacent.push({ kind: "call", callee: last, args: nestedArgs });
@@ -1990,6 +2179,21 @@ export class Parser {
     }
 
     if (isCallableAst(callee)) {
+      if (
+        adjacent.length > 1 &&
+        !this.isStopIdentifier(this.peek()) &&
+        !this.isStopOperator(this.peek()) &&
+        ((this.peek().kind === "identifier" && WORD_DIAD_KEYWORDS.has(this.peek().value)) ||
+          (this.peek().kind === "operator" &&
+            this.peek().value !== ":" &&
+            this.peek().value !== ";"))
+      ) {
+        const vectorArg: AstNode = { kind: "vector", items: adjacent };
+        const binaryArg = this.parseBinaryTail(vectorArg);
+        if (binaryArg !== vectorArg) {
+          return { kind: "call", callee, args: [binaryArg] };
+        }
+      }
       const chained =
         callee.kind === "identifier" || callee.kind === "lambda" || callee.kind === "group"
           ? this.collapseAdjacentCallChain(adjacent)
@@ -2407,9 +2611,16 @@ export const tokenize = (source: string): Token[] => {
       const previousChar = source[i - 1] ?? "";
       const atStatementStart =
         previousIndex < 0 || previousNonSpace === "\n" || previousNonSpace === ";";
+      const startsCommentText =
+        next === " " ||
+        next === "\t" ||
+        /[A-Za-z0-9`"]/.test(next);
       const looksLikeTrailingComment =
         (previousChar === " " || previousChar === "\t" || previousChar === "\r") &&
-        (next === " " || next === "\t");
+        startsCommentText &&
+        next !== ":" &&
+        next !== "/" &&
+        next !== "\\";
       const inCommentPosition =
         next !== ":" && (atStatementStart || looksLikeTrailingComment);
       if (inCommentPosition) {
@@ -2689,9 +2900,9 @@ const renderAst = (node: AstNode): string => {
         .map((column) => `${column.name}:${renderAst(column.value)}`)
         .join(";")})`;
     case "select":
-      return `select ${node.columns ? node.columns.map((column) => column.name ? `${column.name}:${renderAst(column.value)}` : renderAst(column.value)).join(",") : ""} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
+      return `select ${node.columns ? node.columns.map((column) => column.name ? `${column.name}:${renderAst(column.value)}` : renderAst(column.value)).join(",") : ""}${node.by ? ` by ${node.by.map((column) => column.name ? `${column.name}:${renderAst(column.value)}` : renderAst(column.value)).join(",")}` : ""} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
     case "exec":
-      return `exec ${renderAst(node.value)} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
+      return `exec ${renderAst(node.value)}${node.by ? ` by ${node.by.map((column) => column.name ? `${column.name}:${renderAst(column.value)}` : renderAst(column.value)).join(",")}` : ""} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
     case "update":
       return `update ${node.updates.map((update) => `${update.name}:${renderAst(update.value)}`).join(",")} from ${renderAst(node.source)}${node.where ? ` where ${renderAst(node.where)}` : ""}`;
     case "delete":
@@ -3251,6 +3462,28 @@ const maxValue = (value: QValue): QValue => {
   return items.reduce((acc, item) => (compare(item, acc) > 0 ? item : acc));
 };
 
+const medianValue = (value: QValue): QValue => {
+  const list = asList(value);
+  const items = [...list.items];
+  if (items.length === 0) {
+    return qFloat(Number.NaN, "null");
+  }
+
+  const sorted = items.sort(compare);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 1) {
+    const item = sorted[middle]!;
+    return item.kind === "number" ? qFloat(toNumber(item)) : item;
+  }
+
+  const left = sorted[middle - 1]!;
+  const right = sorted[middle]!;
+  if (left.kind === "number" && right.kind === "number") {
+    return qFloat((toNumber(left) + toNumber(right)) / 2);
+  }
+  return left;
+};
+
 const minPair = (left: QValue, right: QValue): QValue =>
   compare(left, right) <= 0 ? left : right;
 
@@ -3409,6 +3642,34 @@ const deviationValue = (value: QValue, sample: boolean): QValue => {
   return variance.kind === "number" && variance.special === "null"
     ? variance
     : qFloat(Math.sqrt(toNumber(variance)));
+};
+
+const movingCountValue = (value: QValue): QValue => {
+  const list = asList(value);
+  return qInt(list.items.filter((item) => !isNullish(item)).length);
+};
+
+const movingValue = (
+  windowSize: QValue,
+  value: QValue,
+  reducer: (value: QValue) => QValue,
+  homogeneous: boolean
+): QValue => {
+  const size = Math.max(1, Math.trunc(toNumber(windowSize)));
+  const list = asList(value);
+  const values = list.items.map((_, index) => {
+    const start = Math.max(0, index - size + 1);
+    const window = qList(list.items.slice(start, index + 1), list.homogeneous ?? false);
+    return reducer(window);
+  });
+  const isHomogeneous = homogeneous && values.every((item) => item.kind === values[0]?.kind);
+  const attribute =
+    isHomogeneous &&
+    values[0]?.kind === "number" &&
+    values.every((item) => item.kind === "number" && item.numericType === "int")
+      ? "explicitInt"
+      : undefined;
+  return qList(values, isHomogeneous, attribute);
 };
 
 const deltasValue = (value: QValue, seed?: QValue): QValue => {
@@ -3722,6 +3983,68 @@ const uniquifyQIdentifiers = (names: string[]) => {
   });
 };
 
+const qsqlExpressionName = (node: AstNode | null): string | null => {
+  if (!node) {
+    return null;
+  }
+  switch (node.kind) {
+    case "identifier":
+      return node.name;
+    case "group":
+      return qsqlExpressionName(node.value);
+    case "assign":
+    case "assignGlobal":
+      return node.name;
+    case "call":
+      return qsqlExpressionName(node.args[0] ?? null);
+    case "binary":
+      return qsqlExpressionName(node.left) ?? qsqlExpressionName(node.right);
+    case "vector":
+      return qsqlExpressionName(node.items[0] ?? null);
+    default:
+      return null;
+  }
+};
+
+const QSQL_AGGREGATES = new Set([
+  "sum",
+  "avg",
+  "min",
+  "max",
+  "count",
+  "first",
+  "last",
+  "prd",
+  "med",
+  "dev",
+  "sdev",
+  "var",
+  "svar"
+]);
+
+const isQsqlAggregateExpression = (node: AstNode | null): boolean => {
+  if (!node) {
+    return false;
+  }
+  if (node.kind === "group") {
+    return isQsqlAggregateExpression(node.value);
+  }
+  if (node.kind === "assign" || node.kind === "assignGlobal") {
+    return isQsqlAggregateExpression(node.value);
+  }
+  return (
+    node.kind === "call" &&
+    node.callee.kind === "identifier" &&
+    node.args.length === 1 &&
+    QSQL_AGGREGATES.has(node.callee.name)
+  );
+};
+
+const qsqlColumnNames = (columns: { name: string | null; value: AstNode }[]) =>
+  uniquifyQIdentifiers(
+    columns.map((column, index) => column.name ?? qsqlExpressionName(column.value) ?? (index === 0 ? "x" : `x${index}`))
+  );
+
 const renameTableColumns = (table: QTable, names: string[]) => {
   const entries = Object.entries(table.columns);
   return qTable(
@@ -3828,6 +4151,15 @@ const asSequenceItems = (value: QValue): QValue[] => {
   return [value];
 };
 
+const shuffleItems = <T>(items: T[]) => {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex]!, copy[index]!];
+  }
+  return copy;
+};
+
 const rebuildSequence = (prototype: QValue, items: QValue[]): QValue => {
   if (prototype.kind === "string") {
     return qString(
@@ -3857,6 +4189,21 @@ const crossValue = (left: QValue, right: QValue): QValue =>
     ),
     false
   );
+
+const applyEachValue = (session: Session, left: QValue, right: QValue): QValue => {
+  if (left.kind === "list" && right.kind === "list") {
+    if (left.items.length !== right.items.length) {
+      throw new QRuntimeError("length", "@' expects equal-length lists");
+    }
+    return qList(
+      left.items.map((item, index) => session.invoke(item, [right.items[index]!])),
+      false
+    );
+  }
+
+  const items = asSequenceItems(right);
+  return qList(items.map((item) => session.invoke(left, [item])), false);
+};
 
 const groupValue = (value: QValue): QValue => {
   const buckets: { key: QValue; positions: QValue[] }[] = [];
@@ -4481,9 +4828,78 @@ const fillValue = (left: QValue, right: QValue): QValue => {
   return isNullish(right) ? left : right;
 };
 
+const sampleSequence = (count: number, source: QValue): QValue => {
+  const distinct = count < 0;
+  const size = Math.abs(Math.trunc(count));
+
+  if (source.kind === "number") {
+    const limit = Math.max(0, Math.trunc(toNumber(source)));
+    const pool = Array.from({ length: limit }, (_, index) => qInt(index));
+    const picks = distinct
+      ? shuffleItems(pool).slice(0, Math.min(size, pool.length))
+      : Array.from({ length: size }, () => qInt(Math.floor(Math.random() * Math.max(limit, 1))));
+    return qList(picks, true, "explicitInt");
+  }
+
+  const items = asSequenceItems(source);
+  if (items.length === 0) {
+    return rebuildSequence(source, []);
+  }
+
+  const picks = distinct
+    ? shuffleItems(items).slice(0, Math.min(size, items.length))
+    : Array.from({ length: size }, () => items[Math.floor(Math.random() * items.length)]!);
+  return rebuildSequence(source, picks);
+};
+
+const findMappedValues = (left: QList, right: QValue): QValue | null => {
+  if (!left.items.every((item) => item.kind === "symbol")) {
+    return null;
+  }
+
+  const rightItems = right.kind === "list" ? right.items : [right];
+  if (!rightItems.every((item) => item.kind === "symbol")) {
+    return null;
+  }
+
+  const keyCount = Math.floor(left.items.length / 2);
+  if (keyCount < 2) {
+    return null;
+  }
+
+  const values = left.items.slice(0, left.items.length - keyCount);
+  const keys = left.items.slice(left.items.length - keyCount);
+  const hasDefault = values.length === keys.length + 1;
+  if (!hasDefault) {
+    return null;
+  }
+
+  const lookup = (item: QValue) => {
+    const index = keys.findIndex((candidate) => equals(candidate, item));
+    if (index >= 0) {
+      return values[index]!;
+    }
+    return hasDefault ? values.at(-1)! : qInt(keys.length);
+  };
+
+  if (right.kind === "list") {
+    return qList(right.items.map(lookup), values.every((item) => item.kind === values[0]?.kind));
+  }
+
+  return lookup(right);
+};
+
 const findValue = (left: QValue, right: QValue): QValue => {
+  if (left.kind === "number") {
+    return sampleSequence(left.value, right);
+  }
   if (left.kind !== "list") {
     throw new QRuntimeError("type", "Find expects a list on the left");
+  }
+
+  const mapped = findMappedValues(left, right);
+  if (mapped) {
+    return mapped;
   }
 
   const lookup = (item: QValue) => {
@@ -4665,6 +5081,26 @@ const castCharValue = (value: QValue): QValue => {
     );
   }
   throw new QRuntimeError("type", "10h$ expects a string or byte-like list");
+};
+
+const stringAtomValue = (value: QValue): QString => {
+  if (value.kind === "symbol" || value.kind === "temporal") {
+    return qString(value.value);
+  }
+  return qString(formatValue(value, { trailingNewline: false }));
+};
+
+const stringValue = (value: QValue): QValue => {
+  if (value.kind === "string") {
+    return qList([...value.value].map((char) => qString(char)), false);
+  }
+  if (value.kind === "list") {
+    return qList(
+      value.items.map((item) => (item.kind === "string" ? stringValue(item) : stringAtomValue(item))),
+      false
+    );
+  }
+  return stringAtomValue(value);
 };
 
 const castIntValue = (value: QValue): QValue => {
@@ -4976,13 +5412,21 @@ const indexKeyedTable = (table: QKeyedTable, args: QValue[]): QValue => {
   }
 
   const keyNames = Object.keys(table.keys.columns);
-  if (keyNames.length !== 1) {
-    throw new QRuntimeError("nyi", "Only single-key keyed table indexing is implemented");
-  }
+  const keyColumns = keyNames.map((name) => table.keys.columns[name]!);
+  const lookupTuple = (key: QValue) => {
+    const values =
+      keyColumns.length === 1
+        ? [key]
+        : key.kind === "list" && key.items.length === keyColumns.length && key.items.every((item) => item.kind !== "list")
+          ? key.items
+          : null;
+    if (!values) {
+      throw new QRuntimeError("type", "Keyed table lookup expects a key tuple");
+    }
 
-  const keyColumn = table.keys.columns[keyNames[0]]!;
-  const lookup = (key: QValue) => {
-    const position = keyColumn.items.findIndex((candidate) => equals(candidate, key));
+    const position = keyColumns[0]!.items.findIndex((_, rowIndex) =>
+      values.every((value, index) => equals(keyColumns[index]!.items[rowIndex]!, value))
+    );
     if (position < 0) {
       return rowFromTable(table.values, -1);
     }
@@ -4990,10 +5434,13 @@ const indexKeyedTable = (table: QKeyedTable, args: QValue[]): QValue => {
   };
 
   const [index] = args;
-  if (index.kind === "list") {
-    return qList(index.items.map(lookup), false);
+  if (keyColumns.length === 1 && index.kind === "list") {
+    return qList(index.items.map(lookupTuple), false);
   }
-  return lookup(index);
+  if (keyColumns.length > 1 && index.kind === "list" && index.items.every((item) => item.kind === "list")) {
+    return qList(index.items.map(lookupTuple), false);
+  }
+  return lookupTuple(index);
 };
 
 const nullLike = (sample?: QValue): QValue => {
@@ -5240,8 +5687,9 @@ const layoutTable = (table: QTable) => {
   const rows = Array.from({ length: rowCount }, (_, rowIndex) =>
     padRow(names.map((_, columnIndex) => cellsByColumn[columnIndex][rowIndex]))
   );
-  const header = padRow(names);
-  const divider = "-".repeat(header.length);
+  const allNamesBlank = names.every((name) => name.length === 0);
+  const header = allNamesBlank ? widths.map((width) => " ".repeat(width)).join(" ") : padRow(names);
+  const divider = allNamesBlank ? widths.map((width) => "-".repeat(width)).join(" ") : "-".repeat(header.length);
   return { header, divider, rows };
 };
 
