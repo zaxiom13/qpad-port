@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { access } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 
@@ -39,6 +39,12 @@ export interface QManifest {
   generatedAt: string;
   source: string;
   fixtures: QFixture[];
+}
+
+interface SpawnedQProcess {
+  child: ChildProcessWithoutNullStreams;
+  stdout: { value: string };
+  stderr: { value: string };
 }
 
 export const normalizeQText = (text: string) =>
@@ -109,6 +115,29 @@ export const classifyBrowserSafety = (program: string, context = "") => {
   return !browserHostOnlyPatterns.some((pattern) => text.includes(pattern));
 };
 
+const spawnQProcess = (binary: string, options: Pick<QProcessOptions, "cwd" | "env"> = {}): SpawnedQProcess => {
+  const child = spawn(binary, ["-q"], {
+    cwd: options.cwd,
+    env: options.env ?? process.env,
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  const stdout = { value: "" };
+  const stderr = { value: "" };
+
+  child.stdout.on("data", (chunk) => {
+    stdout.value += chunk.toString("utf8");
+  });
+
+  child.stderr.on("data", (chunk) => {
+    stderr.value += chunk.toString("utf8");
+  });
+
+  return { child, stdout, stderr };
+};
+
+const createTimeout = (timeoutMs: number | undefined, callback: () => void) =>
+  timeoutMs && timeoutMs > 0 ? setTimeout(callback, timeoutMs) : null;
+
 export const resolveQBinary = async (preferred?: string) => {
   const candidates = [
     preferred,
@@ -146,31 +175,12 @@ export const runQ = async (
   options: QProcessOptions = {}
 ): Promise<QProcessResult> => {
   const binary = await resolveQBinary(options.qBinary);
-  const child = spawn(binary, ["-q"], {
-    cwd: options.cwd,
-    env: options.env ?? process.env,
-    stdio: ["pipe", "pipe", "pipe"]
-  });
-
-  let stdout = "";
-  let stderr = "";
+  const { child, stdout, stderr } = spawnQProcess(binary, options);
   let timedOut = false;
-
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString("utf8");
+  const timer = createTimeout(options.timeoutMs, () => {
+    timedOut = true;
+    child.kill("SIGKILL");
   });
-
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString("utf8");
-  });
-
-  const timer =
-    options.timeoutMs && options.timeoutMs > 0
-      ? setTimeout(() => {
-          timedOut = true;
-          child.kill("SIGKILL");
-        }, options.timeoutMs)
-      : null;
 
   return await new Promise<QProcessResult>((resolve, reject) => {
     child.on("error", reject);
@@ -181,8 +191,8 @@ export const runQ = async (
       resolve({
         binary,
         program,
-        stdout,
-        stderr: timedOut ? `${stderr}\n[oracle timeout]` : stderr,
+        stdout: stdout.value,
+        stderr: timedOut ? `${stderr.value}\n[oracle timeout]` : stderr.value,
         exitCode,
         signal
       });
@@ -200,24 +210,9 @@ export const runQText = async (program: string, options: QProcessOptions = {}) =
 
 export const createQSession = async (options: QProcessOptions = {}): Promise<QSession> => {
   const binary = await resolveQBinary(options.qBinary);
-  const child = spawn(binary, ["-q"], {
-    cwd: options.cwd,
-    env: options.env ?? process.env,
-    stdio: ["pipe", "pipe", "pipe"]
-  });
-
-  let stdout = "";
-  let stderr = "";
+  const { child, stdout, stderr } = spawnQProcess(binary, options);
   let chain = Promise.resolve();
   let closed = false;
-
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString("utf8");
-  });
-
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString("utf8");
-  });
 
   const evaluate: QSession["evaluate"] = (program, executionOptions = {}) =>
     (chain = chain.then(
@@ -229,25 +224,21 @@ export const createQSession = async (options: QProcessOptions = {}): Promise<QSe
           }
 
           const marker = `__QPAD_END_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
-          const stdoutStart = stdout.length;
-          const stderrStart = stderr.length;
+          const stdoutStart = stdout.value.length;
+          const stderrStart = stderr.value.length;
           let settled = false;
-
-          const timer =
-            executionOptions.timeoutMs && executionOptions.timeoutMs > 0
-              ? setTimeout(() => {
-                  settled = true;
-                  reject(new Error(`[oracle timeout] ${program}`));
-                }, executionOptions.timeoutMs)
-              : null;
+          const timer = createTimeout(executionOptions.timeoutMs, () => {
+            settled = true;
+            reject(new Error(`[oracle timeout] ${program}`));
+          });
 
           const finish = () => {
             if (settled) {
               return;
             }
 
-            const stdoutChunk = stdout.slice(stdoutStart);
-            const stderrChunk = stderr.slice(stderrStart);
+            const stdoutChunk = stdout.value.slice(stdoutStart);
+            const stderrChunk = stderr.value.slice(stderrStart);
             const stdoutMarker = stdoutChunk.indexOf(marker);
             const stderrMarker = stderrChunk.indexOf(marker);
             if (stdoutMarker === -1 && stderrMarker === -1) {
@@ -378,20 +369,7 @@ export const runQProbe = async (binary: string) => {
 };
 
 const probeQBinary = async (binary: string): Promise<QProcessResult> => {
-  const child = spawn(binary, ["-q"], {
-    stdio: ["pipe", "pipe", "pipe"]
-  });
-
-  let stdout = "";
-  let stderr = "";
-
-  child.stdout.on("data", (chunk) => {
-    stdout += chunk.toString("utf8");
-  });
-
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString("utf8");
-  });
+  const { child, stdout, stderr } = spawnQProcess(binary);
 
   return await new Promise<QProcessResult>((resolve, reject) => {
     child.on("error", reject);
@@ -399,8 +377,8 @@ const probeQBinary = async (binary: string): Promise<QProcessResult> => {
       resolve({
         binary,
         program: "1+1",
-        stdout,
-        stderr,
+        stdout: stdout.value,
+        stderr: stderr.value,
         exitCode,
         signal
       });

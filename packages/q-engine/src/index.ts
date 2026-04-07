@@ -288,6 +288,13 @@ interface LambdaValue extends QLambda {
   body: AstNode[];
 }
 
+interface TableQueryScope {
+  source: QTable;
+  positions: number[];
+  filtered: QTable;
+  context: Session;
+}
+
 const createHostAdapter = (host: HostAdapter): Required<HostAdapter> => ({
   now: host.now ?? (() => new Date()),
   timezone: host.timezone ?? (() => Intl.DateTimeFormat().resolvedOptions().timeZone),
@@ -443,11 +450,7 @@ export class Session {
   private eval(node: AstNode): QValue {
     switch (node.kind) {
       case "program": {
-        let last: QValue = qNull();
-        for (const statement of node.statements) {
-          last = this.eval(statement);
-        }
-        return last;
+        return this.evalStatements(node.statements);
       }
       case "assign":
         return this.assign(node.name, this.eval(node.value));
@@ -522,12 +525,7 @@ export class Session {
       case "if":
         return isTruthy(this.eval(node.condition)) ? this.evalBranchBody(node.body) : qNull();
       case "cond":
-        for (const branch of node.branches) {
-          if (isTruthy(this.eval(branch.condition))) {
-            return this.eval(branch.value);
-          }
-        }
-        return node.elseValue ? this.eval(node.elseValue) : qNull();
+        return this.evalConditional(node);
       case "group":
         return this.eval(node.value);
       case "each": {
@@ -716,14 +714,17 @@ export class Session {
       child.assign(param, args[index] ?? qNull());
     });
 
-    let last: QValue = qNull();
-    for (const statement of lambda.body) {
-      if (statement.kind === "return") {
-        return child.eval(statement.value);
-      }
-      last = child.eval(statement);
-    }
+    return child.evalStatements(lambda.body);
+  }
 
+  private evalStatements(body: AstNode[]) {
+    let last: QValue = qNull();
+    for (const statement of body) {
+      if (statement.kind === "return") {
+        return this.eval(statement.value);
+      }
+      last = this.eval(statement);
+    }
     return last;
   }
 
@@ -736,6 +737,26 @@ export class Session {
       positions ?? Array.from({ length: tableRowCount(table) }, (_, index) => index);
     child.assign("i", qList(rowPositions.map((index) => qInt(index)), true));
     return child;
+  }
+
+  private requireTableSource(source: AstNode, action: string): QTable {
+    const value = this.eval(source);
+    if (value.kind !== "table") {
+      throw new QRuntimeError("type", `${action} expects a table source`);
+    }
+    return value;
+  }
+
+  private createTableQueryScope(source: AstNode, where: AstNode | null, action: string): TableQueryScope {
+    const table = this.requireTableSource(source, action);
+    const positions = this.resolveTableRows(table, where);
+    const filtered = selectTableRows(table, positions);
+    return {
+      source: table,
+      positions,
+      filtered,
+      context: this.createTableContext(filtered, positions)
+    };
   }
 
   private resolveTableRows(table: QTable, where: AstNode | null) {
@@ -805,6 +826,49 @@ export class Session {
         )
       }))
     );
+  }
+
+  private buildSelectColumns(
+    columns: { name: string | null; value: AstNode }[],
+    context: Session,
+    rowCount: number
+  ) {
+    const names = qsqlColumnNames(columns);
+    const values = columns.map((column) => context.eval(column.value));
+    const aggregateMode = isQsqlAggregateExpression(columns[0]?.value ?? null);
+
+    if (!aggregateMode && !values.some((value) => value.kind === "list" && value.items.length === rowCount)) {
+      throw new QRuntimeError("rank", "select result must be row-wise or aggregate");
+    }
+
+    return columns.map((_, index) => ({
+      name: names[index]!,
+      value: aggregateMode ? qList([values[index]!], false) : materializeTableColumn(values[index]!, rowCount)
+    }));
+  }
+
+  private cloneTableColumns(table: QTable) {
+    return Object.fromEntries(
+      Object.entries(table.columns).map(([name, column]) => [name, [...column.items]])
+    ) as Record<string, QValue[]>;
+  }
+
+  private applyUpdateColumn(
+    updatedColumns: Record<string, QValue[]>,
+    source: QTable,
+    positions: number[],
+    updateName: string,
+    column: QList
+  ) {
+    const sample = column.items[0] ?? source.columns[updateName]?.items[0];
+    const targetColumn =
+      updatedColumns[updateName] ??
+      (updatedColumns[updateName] = Array.from({ length: tableRowCount(source) }, () =>
+        nullLike(sample)
+      ));
+    positions.forEach((position, index) => {
+      targetColumn[position] = column.items[index] ?? nullLike(sample);
+    });
   }
 
   private evalGroupedSelect(
@@ -891,77 +955,32 @@ export class Session {
   }
 
   private evalSelect(node: Extract<AstNode, { kind: "select" }>): QValue {
-    const source = this.eval(node.source);
-    if (source.kind !== "table") {
-      throw new QRuntimeError("type", "select expects a table source");
-    }
-
-    const positions = this.resolveTableRows(source, node.where);
-    const filtered = selectTableRows(source, positions);
+    const { filtered, positions, context } = this.createTableQueryScope(node.source, node.where, "select");
     if (node.by && node.by.length > 0) {
       return this.evalGroupedSelect(filtered, positions, node.columns, node.by);
     }
     if (!node.columns) {
       return filtered;
     }
-
-    const context = this.createTableContext(filtered, positions);
-    const rowCount = tableRowCount(filtered);
-    const names = qsqlColumnNames(node.columns);
-    const values = node.columns.map((column) => context.eval(column.value));
-    const aggregateMode = isQsqlAggregateExpression(node.columns[0]?.value ?? null);
-
-    if (!aggregateMode && !values.some((value) => value.kind === "list" && value.items.length === rowCount)) {
-      throw new QRuntimeError("rank", "select result must be row-wise or aggregate");
-    }
-
-    const columns = node.columns.map((_, index) => ({
-      name: names[index]!,
-      value: aggregateMode ? qList([values[index]!], false) : materializeTableColumn(values[index]!, rowCount)
-    }));
-    return buildTable(columns);
+    return buildTable(this.buildSelectColumns(node.columns, context, tableRowCount(filtered)));
   }
 
   private evalExec(node: Extract<AstNode, { kind: "exec" }>): QValue {
-    const source = this.eval(node.source);
-    if (source.kind !== "table") {
-      throw new QRuntimeError("type", "exec expects a table source");
-    }
-
-    const positions = this.resolveTableRows(source, node.where);
-    const filtered = selectTableRows(source, positions);
+    const { filtered, positions, context } = this.createTableQueryScope(node.source, node.where, "exec");
     if (node.by && node.by.length > 0) {
       return this.evalGroupedExec(filtered, positions, node.value, node.by);
     }
-    const context = this.createTableContext(filtered, positions);
     return context.eval(node.value);
   }
 
   private evalUpdate(node: Extract<AstNode, { kind: "update" }>): QValue {
-    const source = this.eval(node.source);
-    if (source.kind !== "table") {
-      throw new QRuntimeError("type", "update expects a table source");
-    }
-
-    const positions = this.resolveTableRows(source, node.where);
-    const filtered = selectTableRows(source, positions);
-    const context = this.createTableContext(filtered, positions);
-    const updatedColumns = Object.fromEntries(
-      Object.entries(source.columns).map(([name, column]) => [name, [...column.items]])
-    ) as Record<string, QValue[]>;
+    const { source, positions, context } = this.createTableQueryScope(node.source, node.where, "update");
+    const updatedColumns = this.cloneTableColumns(source);
 
     for (const update of node.updates) {
       const value = context.eval(update.value);
       const column = materializeTableColumn(value, positions.length);
-      const sample = column.items[0] ?? source.columns[update.name]?.items[0];
-      if (!updatedColumns[update.name]) {
-        updatedColumns[update.name] = Array.from({ length: tableRowCount(source) }, () =>
-          nullLike(sample)
-        );
-      }
-      positions.forEach((position, index) => {
-        updatedColumns[update.name]![position] = column.items[index] ?? nullLike(sample);
-      });
+      this.applyUpdateColumn(updatedColumns, source, positions, update.name, column);
       context.assign(update.name, column);
     }
 
@@ -976,10 +995,7 @@ export class Session {
   }
 
   private evalDelete(node: Extract<AstNode, { kind: "delete" }>): QValue {
-    const source = this.eval(node.source);
-    if (source.kind !== "table") {
-      throw new QRuntimeError("type", "delete expects a table source");
-    }
+    const source = this.requireTableSource(node.source, "delete");
 
     if (node.columns) {
       if (node.where) {
@@ -1000,11 +1016,16 @@ export class Session {
   }
 
   private evalBranchBody(body: AstNode[]) {
-    let last: QValue = qNull();
-    for (const statement of body) {
-      last = this.eval(statement);
+    return this.evalStatements(body);
+  }
+
+  private evalConditional(node: Extract<AstNode, { kind: "cond" }>) {
+    for (const branch of node.branches) {
+      if (isTruthy(this.eval(branch.condition))) {
+        return this.eval(branch.value);
+      }
     }
-    return last;
+    return node.elseValue ? this.eval(node.elseValue) : qNull();
   }
 
   private evalBinary(op: string, left: QValue, right: QValue): QValue {
@@ -5225,15 +5246,18 @@ const buildTable = (columns: { name: string; value: QValue }[]): QTable => {
 
 const tableRowCount = (table: QTable) => Object.values(table.columns)[0]?.items.length ?? 0;
 
+const selectColumnRows = (column: QList, positions: number[]) =>
+  qList(
+    positions.map((position) => column.items[position] ?? nullLike(column.items[0])),
+    column.homogeneous ?? false
+  );
+
 const selectTableRows = (table: QTable, positions: number[]) =>
   qTable(
     Object.fromEntries(
       Object.entries(table.columns).map(([name, column]) => [
         name,
-        qList(
-          positions.map((position) => column.items[position] ?? nullLike(column.items[0])),
-          column.homogeneous ?? false
-        )
+        selectColumnRows(column, positions)
       ])
     )
   );
@@ -5246,6 +5270,34 @@ const materializeTableColumn = (value: QValue, rowCount: number): QList => {
     return value;
   }
   return qList(Array.from({ length: rowCount }, () => value), true);
+};
+
+const requireUnaryIndex = (args: QValue[], message: string) => {
+  if (args.length !== 1) {
+    throw new QRuntimeError("rank", message);
+  }
+  return args[0]!;
+};
+
+const collectNumericPositions = (index: QValue, message: string) => {
+  if (index.kind !== "list") {
+    throw new QRuntimeError("type", message);
+  }
+
+  return index.items.map((item) => {
+    if (item.kind !== "number") {
+      throw new QRuntimeError("type", message);
+    }
+    return item.value;
+  });
+};
+
+const tableColumnByName = (table: QTable, name: string) => {
+  const column = table.columns[name];
+  if (!column) {
+    throw new QRuntimeError("name", `Unknown column: ${name}`);
+  }
+  return column;
 };
 
 const applyValue = (value: QValue, args: QValue[]): QValue => {
@@ -5356,17 +5408,9 @@ const indexTable = (table: QTable, args: QValue[]): QValue => {
       : indexDictionary(rows, args[1]);
   }
 
-  if (args.length !== 1) {
-    throw new QRuntimeError("rank", "Table indexing expects one or two arguments");
-  }
-
-  const [index] = args;
+  const index = requireUnaryIndex(args, "Table indexing expects one or two arguments");
   if (index.kind === "symbol") {
-    const column = table.columns[index.value];
-    if (!column) {
-      throw new QRuntimeError("name", `Unknown column: ${index.value}`);
-    }
-    return column;
+    return tableColumnByName(table, index.value);
   }
 
   if (index.kind === "list" && index.items.every((item) => item.kind === "symbol")) {
@@ -5378,23 +5422,7 @@ const indexTable = (table: QTable, args: QValue[]): QValue => {
   }
 
   if (index.kind === "list") {
-    const positions = index.items.map((item) => {
-      if (item.kind !== "number") {
-        throw new QRuntimeError("type", "Table row index must be numeric");
-      }
-      return item.value;
-    });
-    return qTable(
-      Object.fromEntries(
-        Object.entries(table.columns).map(([name, column]) => [
-          name,
-          qList(
-            positions.map((position) => column.items[position] ?? nullLike(column.items[0])),
-            column.homogeneous ?? false
-          )
-        ])
-      )
-    );
+    return selectTableRows(table, collectNumericPositions(index, "Table row index must be numeric"));
   }
 
   throw new QRuntimeError("type", "Unsupported table index");
