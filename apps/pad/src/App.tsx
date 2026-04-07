@@ -447,9 +447,134 @@ const defaultSummary = (name: string, kind: BuiltinKind) => {
   if (operatorOverrides[name]?.summary) {
     return operatorOverrides[name].summary!;
   }
+
+  const glossary: Record<string, string> = {
+    all: "Check whether every item is truthy.",
+    any: "Check whether at least one item is truthy.",
+    avgs: "Return running averages across a numeric list.",
+    ceiling: "Round numbers upward.",
+    cols: "Expose table column names.",
+    desc: "Sort values descending.",
+    differ: "Flag changes between adjacent items.",
+    exp: "Apply exponential growth.",
+    fills: "Fill null gaps using neighboring values.",
+    first: "Take the first item or row.",
+    last: "Take the last item or row.",
+    log: "Apply the natural logarithm.",
+    min: "Return the smallest value.",
+    mins: "Return running minima.",
+    max: "Return the largest value.",
+    maxs: "Return running maxima.",
+    med: "Return the median of a numeric list.",
+    asc: "Sort values ascending.",
+    iasc: "Return ascending grade indices.",
+    idesc: "Return descending grade indices.",
+    asin: "Apply inverse sine.",
+    atan: "Apply inverse tangent.",
+    acos: "Apply inverse cosine.",
+    sin: "Apply sine.",
+    cos: "Apply cosine.",
+    tan: "Apply tangent.",
+    floor: "Round numbers downward.",
+    null: "Test whether values are null-like.",
+    reciprocal: "Return multiplicative inverses.",
+    reverse: "Reverse the order of items.",
+    signum: "Return the sign of each numeric value.",
+    sqrt: "Return square roots.",
+    neg: "Negate numeric values.",
+    not: "Invert booleans or truthy values.",
+    enlist: "Wrap a value in a single-item list.",
+    attr: "Inspect list attributes.",
+    keys: "Expose key vectors from keyed structures.",
+    lower: "Convert text to lowercase.",
+    ltrim: "Trim leading whitespace.",
+    next: "Shift a list left and fill the end with null.",
+    upper: "Convert text to uppercase.",
+    prd: "Multiply a numeric list down to one value.",
+    prds: "Return running products.",
+    raze: "Flatten one level of nested lists.",
+    ratios: "Return stepwise ratios between adjacent values.",
+    rtrim: "Trim trailing whitespace.",
+    var: "Return population variance.",
+    svar: "Return sample variance.",
+    dev: "Return population standard deviation.",
+    sdev: "Return sample standard deviation.",
+    deltas: "Return differences between adjacent values.",
+    trim: "Trim whitespace from both ends.",
+    type: "Return q type codes.",
+    show: "Emit a value while also returning it.",
+    system: "Handle supported system-style commands.",
+    div: "Perform integer division.",
+    mavg: "Return moving averages over a fixed window.",
+    mcount: "Return moving non-null counts over a fixed window.",
+    mdev: "Return moving standard deviations over a fixed window.",
+    msum: "Return moving sums over a fixed window.",
+    mod: "Return remainders after division.",
+    and: "Boolean conjunction or elementwise minimum-style logic.",
+    like: "Match strings against simple patterns.",
+    cross: "Build a Cartesian product.",
+    or: "Boolean disjunction or elementwise maximum-style logic.",
+    prior: "Apply a function against each item and its predecessor.",
+    ss: "Search string positions.",
+    sv: "Join values with a separator.",
+    vs: "Split values by a separator.",
+    within: "Check whether values fall inside bounds.",
+    except: "Remove right-side members from the left.",
+    inter: "Return the intersection of two collections.",
+    union: "Return the union of two collections.",
+    xbar: "Bucket numeric values by a step size.",
+    xexp: "Raise the left value as a power base.",
+    xlog: "Take logarithms with an explicit base.",
+    xcol: "Rename or reorder columns.",
+    "<": "Compare whether the left side is less than the right.",
+    ">": "Compare whether the left side is greater than the right.",
+    "<=": "Compare whether the left side is less than or equal to the right.",
+    ">=": "Compare whether the left side is greater than or equal to the right.",
+    "=": "Compare values for equality.",
+    "~": "Compare values for q-style match.",
+    "^": "Fill nulls or missing values from the left.",
+    "_": "Drop items or perform related cut-style removal.",
+    "|": "Take elementwise maxima.",
+    "&": "Take elementwise minima.",
+    "$": "Cast values to another representation.",
+    "%": "Divide numeric values.",
+    "*": "Multiply numeric values.",
+    "-": "Subtract values or negate them.",
+    "+": "Add numeric values.",
+    ",": "Join, append, or enlist values.",
+    "!": "Build dictionaries and keyed structures from keys and values.",
+    "#": "Take, repeat, reshape, or count depending on placement.",
+    "@": "Apply a value, function, or handler with explicit arguments.",
+    "?": "Search, sample, or perform default-style lookup depending on the left side."
+  };
+
+  if (glossary[name]) {
+    return glossary[name];
+  }
+
+  const family = detectFamily(name, kind);
+  if (family === "aggregation") {
+    return "Aggregate a list or table expression down to a summary result.";
+  }
+  if (family === "text") {
+    return "Transform or inspect string data.";
+  }
+  if (family === "tables and dictionaries") {
+    return "Work with keyed data, dictionaries, or tabular structures.";
+  }
+  if (family === "list transforms") {
+    return "Reorder, slice, or reshape list data.";
+  }
+  if (family === "adverbs") {
+    return "Modify how another function is applied across data.";
+  }
+  if (family === "numeric") {
+    return "Apply a numeric transformation or arithmetic combination.";
+  }
+
   return kind === "monad"
-    ? `${name} is a unary builtin in the current qpad engine.`
-    : `${name} is a binary builtin in the current qpad engine.`;
+    ? "Apply a unary transformation to the given value."
+    : "Combine a left and right value with q-style binary semantics.";
 };
 
 const operatorCatalog: OperatorInfo[] = (() => {
@@ -523,8 +648,15 @@ export default function App() {
         type: "module"
       })
   );
+  const [previewWorker] = useState(
+    () =>
+      new Worker(new URL("./worker.ts", import.meta.url), {
+        type: "module"
+      })
+  );
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const requestId = useRef(1);
+  const previewRequestId = useRef(1);
   const [route, setRoute] = useState<Route>(() => parseRoute());
   const [source, setSource] = useState(starter);
   const [status, setStatus] = useState<RunStatus>("idle");
@@ -535,6 +667,8 @@ export default function App() {
   const [history, setHistory] = useState<string[]>([]);
   const [operatorQuery, setOperatorQuery] = useState("");
   const [selectedOperatorName, setSelectedOperatorName] = useState("til");
+  const [previewReady, setPreviewReady] = useState(false);
+  const [examplePreviews, setExamplePreviews] = useState<Record<string, string>>({});
 
   const post = (type: WorkerRequest["type"], payload: Record<string, unknown> = {}) =>
     new Promise<WorkerResponse>((resolve) => {
@@ -549,6 +683,21 @@ export default function App() {
 
       worker.addEventListener("message", handler);
       worker.postMessage({ id, type, ...payload } as WorkerRequest);
+    });
+
+  const postPreview = (type: WorkerRequest["type"], payload: Record<string, unknown> = {}) =>
+    new Promise<WorkerResponse>((resolve) => {
+      const id = previewRequestId.current++;
+      const handler = (event: MessageEvent<WorkerResponse>) => {
+        if (event.data.id !== id) {
+          return;
+        }
+        previewWorker.removeEventListener("message", handler);
+        resolve(event.data);
+      };
+
+      previewWorker.addEventListener("message", handler);
+      previewWorker.postMessage({ id, type, ...payload } as WorkerRequest);
     });
 
   const run = async (program = source) => {
@@ -619,6 +768,24 @@ export default function App() {
   }, [worker]);
 
   useEffect(() => {
+    let active = true;
+
+    postPreview("ping").then((response) => {
+      if (!active) {
+        return;
+      }
+      if (response.type === "ready") {
+        setPreviewReady(true);
+      }
+    });
+
+    return () => {
+      active = false;
+      previewWorker.terminate();
+    };
+  }, [previewWorker]);
+
+  useEffect(() => {
     const onHashChange = () => setRoute(parseRoute());
     window.addEventListener("hashchange", onHashChange);
     if (!window.location.hash) {
@@ -632,6 +799,54 @@ export default function App() {
       setSelectedOperatorName(route.op);
     }
   }, [route]);
+
+  useEffect(() => {
+    if (!previewReady) {
+      return;
+    }
+
+    const programs = [
+      ...new Set([
+        ...operatorCatalog.map((operator) => operator.example),
+        ...quickCheckGroups.flatMap((group) => group.items.map((item) => item.program))
+      ])
+    ];
+
+    let cancelled = false;
+
+    const prerun = async () => {
+      for (const program of programs) {
+        if (cancelled || examplePreviews[program]) {
+          continue;
+        }
+        await postPreview("reset");
+        const response = await postPreview("evaluate", { source: program });
+        if (cancelled) {
+          return;
+        }
+        setExamplePreviews((current) => {
+          if (current[program]) {
+            return current;
+          }
+          return {
+            ...current,
+            [program]:
+              response.type === "result"
+                ? response.text.trimEnd() || "(empty result)"
+                : response.type === "error"
+                  ? response.error.message
+                  : "(no preview)"
+          };
+        });
+      }
+    };
+
+    void prerun();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewReady, examplePreviews]);
 
   const beforeMount = (monaco: any) => {
     if (
@@ -723,6 +938,8 @@ export default function App() {
     navigate({ page: "ops", op: name });
   };
 
+  const previewFor = (program: string) => examplePreviews[program] ?? "Preparing preview...";
+
   const operatorDetail = (operator: OperatorInfo) => (
     <article className="panel-card operator-detail-panel">
       <div className="operator-detail-top">
@@ -746,6 +963,10 @@ export default function App() {
       <div className="operator-example">
         <span className="section-label">example</span>
         <code>{operator.example}</code>
+      </div>
+      <div className="operator-preview">
+        <span className="section-label">preview</span>
+        <pre className="result-block preview-block">{previewFor(operator.example)}</pre>
       </div>
       <div className="operator-actions">
         <button className="action-primary small" onClick={() => runSnippet(operator.example)}>
@@ -995,7 +1216,7 @@ export default function App() {
                           onDoubleClick={() => openOperatorPage(operator.name)}
                         >
                           <span>{operator.name}</span>
-                          <small>{operator.kind}</small>
+                          <small>{previewFor(operator.example)}</small>
                         </button>
                       ))}
                     </div>
@@ -1040,7 +1261,7 @@ export default function App() {
                           onClick={() => openOperatorPage(operator.name)}
                         >
                           <span>{operator.name}</span>
-                          <small>{operator.kind}</small>
+                          <small>{previewFor(operator.example)}</small>
                         </button>
                       ))}
                     </div>
@@ -1077,10 +1298,11 @@ export default function App() {
                     <div className="quickcheck-list">
                       {group.items.map((item) => (
                         <div key={`${group.title}-${item.label}`} className="quickcheck-item">
-                          <div className="quickcheck-copy">
-                            <strong>{item.label}</strong>
-                            <code>{item.program}</code>
-                          </div>
+                        <div className="quickcheck-copy">
+                          <strong>{item.label}</strong>
+                          <code>{item.program}</code>
+                          <pre className="quickcheck-preview">{previewFor(item.program)}</pre>
+                        </div>
                           <div className="quickcheck-actions">
                             <button
                               className="action-secondary small"

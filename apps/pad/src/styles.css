@@ -542,10 +542,8 @@ button {
 .ops-row {
   width: 100%;
   text-align: left;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  gap: 8px;
   padding: 11px 12px;
   border-radius: 14px;
   border: 1px solid rgba(42, 30, 24, 0.1);
@@ -561,9 +559,13 @@ button {
 .operator-chip small,
 .ops-row small {
   color: var(--muted);
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .operator-chip-active,
@@ -608,6 +610,7 @@ button {
 }
 
 .operator-example,
+.operator-preview,
 .operator-notes {
   display: grid;
   gap: 10px;
@@ -623,6 +626,14 @@ button {
   word-break: break-word;
   line-height: 1.5;
   font-size: 0.9rem;
+}
+
+.preview-block {
+  min-height: 72px;
+  max-height: 140px;
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .namespace-row {
@@ -740,6 +751,21 @@ button {
   word-break: break-word;
   line-height: 1.5;
   font-size: 0.86rem;
+}
+
+.quickcheck-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(42, 30, 24, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  font-size: 0.8rem;
+  max-height: 6.5rem;
+  overflow: auto;
 }
 
 .parity-panel {
