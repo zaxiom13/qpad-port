@@ -2,116 +2,27 @@ import Editor, { type OnMount } from "@monaco-editor/react";
 import { qMonarchSyntax, qMonarchTheme } from "@qpad/language";
 import type { editor, languages } from "monaco-editor";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  namespaceHint,
+  operatorCatalog,
+  quickCheckGroups,
+  quickExamples,
+  slugifyOperator,
+  starter,
+  type OperatorInfo,
+  unslugifyOperator
+} from "./operator-catalog";
 import { parityRows, paritySummary } from "./parity-data";
-import type { SerializedError, WorkerRequest, WorkerResponse } from "./protocol";
+import type { SerializedError, WorkerRequest } from "./protocol";
+import {
+  DEFAULT_PREVIEW_TEXT,
+  createPadWorker,
+  postWorkerRequest,
+  previewTextFromResponse
+} from "./worker-client";
 
 type RunStatus = "idle" | "running" | "ready" | "error";
 type Route = { page: "pad" } | { page: "ops"; op?: string } | { page: "parity" };
-type BuiltinKind = "monad" | "diad";
-
-type OperatorInfo = {
-  name: string;
-  slug: string;
-  kind: BuiltinKind;
-  family: string;
-  summary: string;
-  example: string;
-  notes: string[];
-};
-
-const starter = `a:til 5
-/ use Ctrl+Enter or the Run button
-sum a
-`;
-
-const quickExamples = [
-  "1+2",
-  "til 10",
-  "avg 1 2 3",
-  "distinct 2 3 7 3 5 3",
-  ".Q.n",
-  ".z.K"
-];
-
-const quickCheckGroups = [
-  {
-    title: "Atoms and lists",
-    items: [
-      { label: "Distinct", program: "distinct 2 3 7 3 5 3" },
-      { label: "Unique", program: "1 2 1 3 2 4" },
-      { label: "Sums", program: "sums 3 1 4 1 5" },
-      { label: "Prev", program: "prev 10 20 30 40" },
-      { label: "Rotate", program: "2 rotate 10 20 30 40 50" },
-      { label: "Cut", program: "2 cut til 10" }
-    ]
-  },
-  {
-    title: "Dictionaries and keyed tables",
-    items: [
-      { label: "Dict lookup", program: "(`a`b`c!10 20 30)`b" },
-      { label: "Membership", program: "`b in `a`b`c" },
-      { label: "Keyed row", program: "([k:`a`b] v:10 20)[`a]" },
-      { label: "Table keys", program: "key ([k:`a`b] v:10 20)" },
-      { label: "Flip dict", program: "flip `x`y!(til 4;10 20 30 40)" },
-      { label: "Xcol rename", program: "`left`right xcol ([]x:til 3;y:10 20 30)" }
-    ]
-  },
-  {
-    title: "Tables and qsql",
-    items: [
-      { label: "Plain table", program: "([] x: til 5; y: 10 20 30 40 50)" },
-      {
-        label: "Select where",
-        program: "select from ([] x: til 6; y: 10 20 30 40 50 60) where x>2"
-      },
-      {
-        label: "Exec column",
-        program: "exec y from ([] x: til 4; y: 10 20 30 40)"
-      },
-      {
-        label: "Update column",
-        program: "update z:x+y from ([] x: 1 2 3; y: 10 20 30)"
-      },
-      {
-        label: "Delete column",
-        program: "delete y from ([] x: til 3; y: 10 20 30; z: 100 200 300)"
-      },
-      {
-        label: "Unnamed cols",
-        program: "([] 1 2 3; 10 20 30; 100 200 300)"
-      }
-    ]
-  },
-  {
-    title: "Apply and adverbs",
-    items: [
-      { label: "Apply operator", program: "|[2;til 5]" },
-      { label: "Each", program: "string each (1 20 300)" },
-      { label: "Projection", program: "(+[2]) 40" },
-      { label: "Sublist", program: "sublist[1 3;10 20 30 40 50]" },
-      { label: "Take shape", program: "2 3#til 6" },
-      { label: "Map at", program: "@[|:;\"zero\"]" }
-    ]
-  },
-  {
-    title: "Dot namespaces",
-    items: [
-      { label: ".Q.n", program: ".Q.n" },
-      { label: ".Q.id", program: ".Q.id each `$(\"ab\";\"a/b\";\"two words\")" },
-      { label: ".Q.s", program: ".Q.s ([h:1 2 3] m:4 5 6)" },
-      { label: ".Q.btoa", program: ".Q.btoa \"hello\"" },
-      { label: ".z.K", program: ".z.K" },
-      { label: ".z.T", program: ".z.T" }
-    ]
-  }
-] as const;
-
-const namespaceHint = [
-  { label: ".Q.n", value: "0123456789", note: "digit tape" },
-  { label: ".Q.A", value: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", note: "alphabet rail" },
-  { label: ".z.K", value: "current date marker", note: "session clock" },
-  { label: ".z.T", value: "current time marker", note: "time pulse" }
-];
 
 const telemetry = [
   { value: `${paritySummary.browserSafeFixtures}`, label: "browser-safe fixtures" },
@@ -119,495 +30,18 @@ const telemetry = [
   { value: `${paritySummary.upstreamFixtures}`, label: "jq comparisons" }
 ];
 
-const builtinCatalogSource = {
-  monads: [
-    "abs",
-    "all",
-    "any",
-    "avgs",
-    "til",
-    "ceiling",
-    "cols",
-    "count",
-    "desc",
-    "differ",
-    "exp",
-    "fills",
-    "first",
-    "last",
-    "log",
-    "min",
-    "mins",
-    "max",
-    "maxs",
-    "med",
-    "asc",
-    "iasc",
-    "idesc",
-    "asin",
-    "atan",
-    "sum",
-    "avg",
-    "acos",
-    "sin",
-    "cos",
-    "tan",
-    "floor",
-    "null",
-    "reciprocal",
-    "reverse",
-    "signum",
-    "sqrt",
-    "neg",
-    "not",
-    "enlist",
-    "distinct",
-    "attr",
-    "flip",
-    "group",
-    "key",
-    "keys",
-    "lower",
-    "ltrim",
-    "next",
-    "upper",
-    "cut",
-    "prd",
-    "prds",
-    "prev",
-    "raze",
-    "ratios",
-    "rtrim",
-    "var",
-    "svar",
-    "dev",
-    "sdev",
-    "deltas",
-    "trim",
-    "sums",
-    "string",
-    "type",
-    "where",
-    "value",
-    "show",
-    "system"
-  ],
-  diads: [
-    "+",
-    "-",
-    "*",
-    "%",
-    "=",
-    "<",
-    ">",
-    "<=",
-    ">=",
-    ",",
-    "!",
-    "#",
-    "_",
-    "~",
-    "div",
-    "mavg",
-    "mcount",
-    "mdev",
-    "msum",
-    "mod",
-    "^",
-    "?",
-    "$",
-    "@",
-    "and",
-    "in",
-    "like",
-    "|",
-    "&",
-    "cross",
-    "or",
-    "over",
-    "prior",
-    "scan",
-    "ss",
-    "sv",
-    "vs",
-    "within",
-    "except",
-    "inter",
-    "union",
-    "xbar",
-    "xexp",
-    "xlog",
-    "cut",
-    "xcol",
-    "rotate",
-    "sublist"
-  ]
-} as const;
-
-const operatorOverrides: Record<
-  string,
-  Partial<Pick<OperatorInfo, "family" | "summary" | "example" | "notes">>
-> = {
-  abs: {
-    family: "numeric",
-    summary: "Absolute value for atoms and numeric vectors.",
-    example: "abs -3 2 -9"
-  },
-  til: {
-    family: "list building",
-    summary: "Generate a zero-based range from a count.",
-    example: "til 8"
-  },
-  count: {
-    family: "inspection",
-    summary: "Count items, rows, or characters depending on the input.",
-    example: "count `a`b`c"
-  },
-  sum: {
-    family: "aggregation",
-    summary: "Reduce a numeric list by addition.",
-    example: "sum 3 1 4 1 5"
-  },
-  avg: {
-    family: "aggregation",
-    summary: "Compute the arithmetic mean of a numeric list.",
-    example: "avg 10 20 30"
-  },
-  distinct: {
-    family: "set logic",
-    summary: "Keep the first appearance of each unique item.",
-    example: "distinct 2 3 7 3 5 3"
-  },
-  flip: {
-    family: "tables and dictionaries",
-    summary: "Transpose nested data and dictionaries into tables.",
-    example: "flip `x`y!(til 4;10 20 30 40)"
-  },
-  group: {
-    family: "tables and dictionaries",
-    summary: "Bucket positions by equal values.",
-    example: "group `a`b`a`c`b"
-  },
-  key: {
-    family: "tables and dictionaries",
-    summary: "Extract keys from dictionaries, keyed tables, and namespaces.",
-    example: "key `a`b!10 20"
-  },
-  string: {
-    family: "text",
-    summary: "Render values as q strings or lists of characters.",
-    example: "string `qpad"
-  },
-  where: {
-    family: "selection",
-    summary: "Return positions selected by a boolean vector.",
-    example: "where 1 0 1 1b"
-  },
-  value: {
-    family: "inspection",
-    summary: "Return the raw value unchanged.",
-    example: "value 1 2 3"
-  },
-  prev: {
-    family: "windowing",
-    summary: "Shift a list right and fill the first slot with null.",
-    example: "prev 10 20 30 40"
-  },
-  sums: {
-    family: "windowing",
-    summary: "Running cumulative sum.",
-    example: "sums 3 1 4 1 5"
-  },
-  rotate: {
-    family: "list transforms",
-    summary: "Rotate a sequence by a count on the left.",
-    example: "2 rotate 10 20 30 40 50"
-  },
-  cut: {
-    family: "list transforms",
-    summary: "Split a list or string into slices.",
-    example: "2 cut til 10"
-  },
-  sublist: {
-    family: "list transforms",
-    summary: "Extract a span from a list by start and length.",
-    example: "sublist[1 3;10 20 30 40 50]"
-  },
-  in: {
-    family: "set logic",
-    summary: "Membership test over lists and symbol vectors.",
-    example: "`b in `a`b`c"
-  },
-  over: {
-    family: "adverbs",
-    summary: "Fold a function across a list.",
-    example: "+/ 1 2 3 4"
-  },
-  scan: {
-    family: "adverbs",
-    summary: "Running fold that returns every intermediate result.",
-    example: "+\\ 1 2 3 4"
-  },
-  "@": {
-    family: "apply",
-    summary: "Apply a value, function, or handler with explicit arguments.",
-    example: "@[|:;\"zero\"]"
-  },
-  "?": {
-    family: "lookup and search",
-    summary: "Search, sample, or perform default-mapping style lookup depending on the left value.",
-    example: "10?`v1`v2`v3",
-    notes: [
-      "List-left returns positions.",
-      "Number-left samples from the right argument.",
-      "Default-mapping forms are also supported."
-    ]
-  },
-  "!": {
-    family: "tables and dictionaries",
-    summary: "Build dictionaries and keyed structures from keys and values.",
-    example: "`a`b!10 20"
-  },
-  "#": {
-    family: "reshape",
-    summary: "Take, reshape, or count depending on placement.",
-    example: "2 3#til 6"
-  },
-  ",": {
-    family: "list transforms",
-    summary: "Join, append, or enlist depending on rank.",
-    example: "1 2,3 4"
-  },
-  "+": {
-    family: "numeric",
-    summary: "Addition and a base for derived adverbs like over and scan.",
-    example: "10 + 32"
-  },
-  "-": {
-    family: "numeric",
-    summary: "Subtraction and unary negation.",
-    example: "10 - 3"
-  },
-  "*": {
-    family: "numeric",
-    summary: "Multiplication across atoms and vectors.",
-    example: "6 * 7"
-  },
-  "%": {
-    family: "numeric",
-    summary: "Division across atoms and vectors.",
-    example: "22 % 7"
-  }
+const HISTORY_LIMIT = 10;
+const DEFAULT_OUTPUT = "Ready to evaluate.";
+const SESSION_RESET_OUTPUT = "Session reset.";
+const WORKER_CRASH_OUTPUT =
+  "Worker crashed before responding. Check the expression or reload the page.";
+const DEFAULT_VERSION = "booting";
+const STATUS_LABELS: Record<RunStatus, string> = {
+  idle: "standby",
+  running: "evaluating",
+  ready: "ready",
+  error: "error"
 };
-
-const slugifyOperator = (name: string) =>
-  encodeURIComponent(name)
-    .replace(/%/g, "")
-    .toLowerCase();
-
-const unslugifyOperator = (slug?: string) =>
-  slug ? decodeURIComponent(slug.replace(/%(?![0-9A-Fa-f]{2})/g, "%25")) : undefined;
-
-const detectFamily = (name: string, kind: BuiltinKind) => {
-  if (operatorOverrides[name]?.family) {
-    return operatorOverrides[name].family!;
-  }
-  if (/^[+\-*%=<>?,!#@_^~|&$]+$/.test(name)) {
-    return "glyph operators";
-  }
-  if (["over", "scan", "prior"].includes(name)) {
-    return "adverbs";
-  }
-  if (["key", "keys", "group", "flip", "xcol"].includes(name)) {
-    return "tables and dictionaries";
-  }
-  if (["sum", "avg", "min", "max", "count", "prd", "med", "dev", "var"].includes(name)) {
-    return "aggregation";
-  }
-  if (["string", "lower", "upper", "trim", "ltrim", "rtrim", "like", "ss", "sv", "vs"].includes(name)) {
-    return "text";
-  }
-  if (["til", "rotate", "cut", "sublist", "raze", "distinct", "enlist", "reverse"].includes(name)) {
-    return "list transforms";
-  }
-  return kind === "monad" ? "monads" : "diads";
-};
-
-const defaultExample = (name: string, kind: BuiltinKind) => {
-  if (operatorOverrides[name]?.example) {
-    return operatorOverrides[name].example!;
-  }
-  if (kind === "monad") {
-    return `${name} 1 2 3`;
-  }
-  return /^[A-Za-z.]+$/.test(name) ? `2 ${name} 1 2 3 4` : `1 ${name} 2`;
-};
-
-const defaultSummary = (name: string, kind: BuiltinKind) => {
-  if (operatorOverrides[name]?.summary) {
-    return operatorOverrides[name].summary!;
-  }
-
-  const glossary: Record<string, string> = {
-    all: "Check whether every item is truthy.",
-    any: "Check whether at least one item is truthy.",
-    avgs: "Return running averages across a numeric list.",
-    ceiling: "Round numbers upward.",
-    cols: "Expose table column names.",
-    desc: "Sort values descending.",
-    differ: "Flag changes between adjacent items.",
-    exp: "Apply exponential growth.",
-    fills: "Fill null gaps using neighboring values.",
-    first: "Take the first item or row.",
-    last: "Take the last item or row.",
-    log: "Apply the natural logarithm.",
-    min: "Return the smallest value.",
-    mins: "Return running minima.",
-    max: "Return the largest value.",
-    maxs: "Return running maxima.",
-    med: "Return the median of a numeric list.",
-    asc: "Sort values ascending.",
-    iasc: "Return ascending grade indices.",
-    idesc: "Return descending grade indices.",
-    asin: "Apply inverse sine.",
-    atan: "Apply inverse tangent.",
-    acos: "Apply inverse cosine.",
-    sin: "Apply sine.",
-    cos: "Apply cosine.",
-    tan: "Apply tangent.",
-    floor: "Round numbers downward.",
-    null: "Test whether values are null-like.",
-    reciprocal: "Return multiplicative inverses.",
-    reverse: "Reverse the order of items.",
-    signum: "Return the sign of each numeric value.",
-    sqrt: "Return square roots.",
-    neg: "Negate numeric values.",
-    not: "Invert booleans or truthy values.",
-    enlist: "Wrap a value in a single-item list.",
-    attr: "Inspect list attributes.",
-    keys: "Expose key vectors from keyed structures.",
-    lower: "Convert text to lowercase.",
-    ltrim: "Trim leading whitespace.",
-    next: "Shift a list left and fill the end with null.",
-    upper: "Convert text to uppercase.",
-    prd: "Multiply a numeric list down to one value.",
-    prds: "Return running products.",
-    raze: "Flatten one level of nested lists.",
-    ratios: "Return stepwise ratios between adjacent values.",
-    rtrim: "Trim trailing whitespace.",
-    var: "Return population variance.",
-    svar: "Return sample variance.",
-    dev: "Return population standard deviation.",
-    sdev: "Return sample standard deviation.",
-    deltas: "Return differences between adjacent values.",
-    trim: "Trim whitespace from both ends.",
-    type: "Return q type codes.",
-    show: "Emit a value while also returning it.",
-    system: "Handle supported system-style commands.",
-    div: "Perform integer division.",
-    mavg: "Return moving averages over a fixed window.",
-    mcount: "Return moving non-null counts over a fixed window.",
-    mdev: "Return moving standard deviations over a fixed window.",
-    msum: "Return moving sums over a fixed window.",
-    mod: "Return remainders after division.",
-    and: "Boolean conjunction or elementwise minimum-style logic.",
-    like: "Match strings against simple patterns.",
-    cross: "Build a Cartesian product.",
-    or: "Boolean disjunction or elementwise maximum-style logic.",
-    prior: "Apply a function against each item and its predecessor.",
-    ss: "Search string positions.",
-    sv: "Join values with a separator.",
-    vs: "Split values by a separator.",
-    within: "Check whether values fall inside bounds.",
-    except: "Remove right-side members from the left.",
-    inter: "Return the intersection of two collections.",
-    union: "Return the union of two collections.",
-    xbar: "Bucket numeric values by a step size.",
-    xexp: "Raise the left value as a power base.",
-    xlog: "Take logarithms with an explicit base.",
-    xcol: "Rename or reorder columns.",
-    "<": "Compare whether the left side is less than the right.",
-    ">": "Compare whether the left side is greater than the right.",
-    "<=": "Compare whether the left side is less than or equal to the right.",
-    ">=": "Compare whether the left side is greater than or equal to the right.",
-    "=": "Compare values for equality.",
-    "~": "Compare values for q-style match.",
-    "^": "Fill nulls or missing values from the left.",
-    "_": "Drop items or perform related cut-style removal.",
-    "|": "Take elementwise maxima.",
-    "&": "Take elementwise minima.",
-    "$": "Cast values to another representation.",
-    "%": "Divide numeric values.",
-    "*": "Multiply numeric values.",
-    "-": "Subtract values or negate them.",
-    "+": "Add numeric values.",
-    ",": "Join, append, or enlist values.",
-    "!": "Build dictionaries and keyed structures from keys and values.",
-    "#": "Take, repeat, reshape, or count depending on placement.",
-    "@": "Apply a value, function, or handler with explicit arguments.",
-    "?": "Search, sample, or perform default-style lookup depending on the left side."
-  };
-
-  if (glossary[name]) {
-    return glossary[name];
-  }
-
-  const family = detectFamily(name, kind);
-  if (family === "aggregation") {
-    return "Aggregate a list or table expression down to a summary result.";
-  }
-  if (family === "text") {
-    return "Transform or inspect string data.";
-  }
-  if (family === "tables and dictionaries") {
-    return "Work with keyed data, dictionaries, or tabular structures.";
-  }
-  if (family === "list transforms") {
-    return "Reorder, slice, or reshape list data.";
-  }
-  if (family === "adverbs") {
-    return "Modify how another function is applied across data.";
-  }
-  if (family === "numeric") {
-    return "Apply a numeric transformation or arithmetic combination.";
-  }
-
-  return kind === "monad"
-    ? "Apply a unary transformation to the given value."
-    : "Combine a left and right value with q-style binary semantics.";
-};
-
-const operatorCatalog: OperatorInfo[] = (() => {
-  const builtins = builtinCatalogSource;
-  const seen = new Set<string>();
-  const values: OperatorInfo[] = [];
-
-  ([
-    ...builtins.monads.map((name: string) => ({ name, kind: "monad" as const })),
-    ...builtins.diads.map((name: string) => ({ name, kind: "diad" as const }))
-  ]).forEach(({ name, kind }) => {
-    if (seen.has(`${kind}:${name}`)) {
-      return;
-    }
-    seen.add(`${kind}:${name}`);
-    values.push({
-      name,
-      slug: slugifyOperator(name),
-      kind,
-      family: detectFamily(name, kind),
-      summary: defaultSummary(name, kind),
-      example: defaultExample(name, kind),
-      notes:
-        operatorOverrides[name]?.notes ??
-        [
-          kind === "monad" ? "Takes one argument." : "Takes two arguments.",
-          "Load the example into the pad to inspect the current browser implementation."
-        ]
-    });
-  });
-
-  return values.sort((left, right) => left.name.localeCompare(right.name));
-})();
 
 const parseRoute = (): Route => {
   const hash = window.location.hash.replace(/^#/, "");
@@ -632,36 +66,20 @@ const routeToHash = (route: Route) => {
 };
 
 function formatStatus(status: RunStatus) {
-  if (status === "idle") {
-    return "standby";
-  }
-  if (status === "running") {
-    return "evaluating";
-  }
-  return status;
+  return STATUS_LABELS[status];
 }
 
 export default function App() {
-  const [worker] = useState(
-    () =>
-      new Worker(new URL("./worker.ts", import.meta.url), {
-        type: "module"
-      })
-  );
-  const [previewWorker] = useState(
-    () =>
-      new Worker(new URL("./worker.ts", import.meta.url), {
-        type: "module"
-      })
-  );
+  const [worker] = useState(createPadWorker);
+  const [previewWorker] = useState(createPadWorker);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const requestId = useRef(1);
   const previewRequestId = useRef(1);
   const [route, setRoute] = useState<Route>(() => parseRoute());
   const [source, setSource] = useState(starter);
   const [status, setStatus] = useState<RunStatus>("idle");
-  const [version, setVersion] = useState("booting");
-  const [output, setOutput] = useState("Ready to evaluate.");
+  const [version, setVersion] = useState(DEFAULT_VERSION);
+  const [output, setOutput] = useState(DEFAULT_OUTPUT);
   const [canonical, setCanonical] = useState("");
   const [lastError, setLastError] = useState<SerializedError | null>(null);
   const [history, setHistory] = useState<string[]>([]);
@@ -671,34 +89,10 @@ export default function App() {
   const [examplePreviews, setExamplePreviews] = useState<Record<string, string>>({});
 
   const post = (type: WorkerRequest["type"], payload: Record<string, unknown> = {}) =>
-    new Promise<WorkerResponse>((resolve) => {
-      const id = requestId.current++;
-      const handler = (event: MessageEvent<WorkerResponse>) => {
-        if (event.data.id !== id) {
-          return;
-        }
-        worker.removeEventListener("message", handler);
-        resolve(event.data);
-      };
-
-      worker.addEventListener("message", handler);
-      worker.postMessage({ id, type, ...payload } as WorkerRequest);
-    });
+    postWorkerRequest(worker, requestId, type, payload);
 
   const postPreview = (type: WorkerRequest["type"], payload: Record<string, unknown> = {}) =>
-    new Promise<WorkerResponse>((resolve) => {
-      const id = previewRequestId.current++;
-      const handler = (event: MessageEvent<WorkerResponse>) => {
-        if (event.data.id !== id) {
-          return;
-        }
-        previewWorker.removeEventListener("message", handler);
-        resolve(event.data);
-      };
-
-      previewWorker.addEventListener("message", handler);
-      previewWorker.postMessage({ id, type, ...payload } as WorkerRequest);
-    });
+    postWorkerRequest(previewWorker, previewRequestId, type, payload);
 
   const run = async (program = source) => {
     setStatus("running");
@@ -708,7 +102,7 @@ export default function App() {
       setStatus("ready");
       setOutput(response.text);
       setCanonical(JSON.stringify(response.canonical, null, 2));
-      setHistory((items) => [program, ...items].slice(0, 10));
+      setHistory((items) => [program, ...items].slice(0, HISTORY_LIMIT));
       return;
     }
 
@@ -725,7 +119,7 @@ export default function App() {
     const response = await post("reset");
     if (response.type === "ready") {
       setStatus("ready");
-      setOutput("Session reset.");
+      setOutput(SESSION_RESET_OUTPUT);
       setCanonical("");
     }
   };
@@ -737,7 +131,7 @@ export default function App() {
         return;
       }
       setStatus("error");
-      setOutput("Worker crashed before responding. Check the expression or reload the page.");
+      setOutput(WORKER_CRASH_OUTPUT);
       if ("message" in event) {
         setLastError({
           name: "WorkerError",
@@ -830,12 +224,7 @@ export default function App() {
           }
           return {
             ...current,
-            [program]:
-              response.type === "result"
-                ? response.text.trimEnd() || "(empty result)"
-                : response.type === "error"
-                  ? response.error.message
-                  : "(no preview)"
+            [program]: previewTextFromResponse(response)
           };
         });
       }
@@ -938,7 +327,7 @@ export default function App() {
     navigate({ page: "ops", op: name });
   };
 
-  const previewFor = (program: string) => examplePreviews[program] ?? "Preparing preview...";
+  const previewFor = (program: string) => examplePreviews[program] ?? DEFAULT_PREVIEW_TEXT;
 
   const operatorDetail = (operator: OperatorInfo) => (
     <article className="panel-card operator-detail-panel">
@@ -1298,11 +687,11 @@ export default function App() {
                     <div className="quickcheck-list">
                       {group.items.map((item) => (
                         <div key={`${group.title}-${item.label}`} className="quickcheck-item">
-                        <div className="quickcheck-copy">
-                          <strong>{item.label}</strong>
-                          <code>{item.program}</code>
-                          <pre className="quickcheck-preview">{previewFor(item.program)}</pre>
-                        </div>
+                          <div className="quickcheck-copy">
+                            <strong>{item.label}</strong>
+                            <code>{item.program}</code>
+                            <pre className="quickcheck-preview">{previewFor(item.program)}</pre>
+                          </div>
                           <div className="quickcheck-actions">
                             <button
                               className="action-secondary small"

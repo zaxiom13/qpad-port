@@ -2,37 +2,53 @@
 import { createSession } from "@qpad/engine";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 
+const WORKER_VERSION = "qpad-worker@0.1.0";
+
 let session = createSession();
 
 const post = (message: WorkerResponse) => self.postMessage(message);
+
+const readyResponse = (id: number): WorkerResponse => ({
+  id,
+  type: "ready",
+  version: WORKER_VERSION
+});
+
+const handlePing = (message: Extract<WorkerRequest, { type: "ping" }>) => readyResponse(message.id);
+
+const handleReset = (message: Extract<WorkerRequest, { type: "reset" }>) => {
+  session = createSession();
+  return readyResponse(message.id);
+};
+
+const handleEvaluate = (message: Extract<WorkerRequest, { type: "evaluate" }>): WorkerResponse => {
+  const result = session.evaluate(message.source);
+  return {
+    id: message.id,
+    type: "result",
+    source: message.source,
+    text: result.formatted,
+    canonical: result.canonical,
+    value: result.value
+  };
+};
+
+const handleMessage = (message: WorkerRequest): WorkerResponse => {
+  switch (message.type) {
+    case "ping":
+      return handlePing(message);
+    case "reset":
+      return handleReset(message);
+    case "evaluate":
+      return handleEvaluate(message);
+  }
+};
 
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
 
   try {
-    if (message.type === "ping") {
-      post({ id: message.id, type: "ready", version: "qpad-worker@0.1.0" });
-      return;
-    }
-
-    if (message.type === "reset") {
-      session = createSession();
-      post({ id: message.id, type: "ready", version: "qpad-worker@0.1.0" });
-      return;
-    }
-
-    if (message.type === "evaluate") {
-      const result = session.evaluate(message.source);
-      post({
-        id: message.id,
-        type: "result",
-        source: message.source,
-        text: result.formatted,
-        canonical: result.canonical,
-        value: result.value
-      });
-      return;
-    }
+    post(handleMessage(message));
   } catch (error) {
     post({
       id: message.id,

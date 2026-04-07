@@ -70,6 +70,28 @@ test("grouping fixtures by session keeps reference blocks together", () => {
   );
 });
 
+test("grouping fixtures merges the shared syntax reference session", () => {
+  const groups = groupFixturesBySession([
+    {
+      id: "https://code.kx.com/q/basics/syntax/#12.0",
+      origin: "reference",
+      page: "https://code.kx.com/q/basics/syntax/",
+      program: "first 1 2 3",
+      browserSafe: true
+    },
+    {
+      id: "https://code.kx.com/q/basics/syntax/#15.1",
+      origin: "reference",
+      page: "https://code.kx.com/q/basics/syntax/",
+      program: "last 1 2 3",
+      browserSafe: true
+    }
+  ]);
+
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]?.sessionId, "https://code.kx.com/q/basics/syntax/#12-15");
+});
+
 test("runQSession preserves state across sequential programs", async () => {
   const results = await runQSession(["v:10 20 30", "show v", "v[1]"], {
     timeoutMs: 10000,

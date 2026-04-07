@@ -4935,56 +4935,46 @@ const findValue = (left: QValue, right: QValue): QValue => {
   return lookup(right);
 };
 
+type CastHandler = (value: QValue) => QValue;
+
+const castNameFromLeftOperand = (left: QValue) => {
+  switch (left.kind) {
+    case "symbol":
+    case "string":
+      return left.value;
+    case "number":
+      return left.numericType === "short" ? `${left.value}h` : null;
+    default:
+      return null;
+  }
+};
+
+const CAST_ALIAS_GROUPS: ReadonlyArray<{ aliases: readonly string[]; cast: CastHandler }> = [
+  { aliases: ["", "symbol", "11h"], cast: (value) => castSymbolValue(value) },
+  { aliases: ["boolean", "bool", "1h"], cast: (value) => castBooleanValue(value) },
+  { aliases: ["short", "h", "5h"], cast: (value) => castShortValue(value) },
+  { aliases: ["int", "i", "long", "j", "6h", "7h"], cast: (value) => castIntValue(value) },
+  { aliases: ["float", "real", "e", "f", "8h", "9h"], cast: (value) => castFloatValue(value) },
+  { aliases: ["10h", "char", "string"], cast: (value) => castCharValue(value) },
+  { aliases: ["date", "14h"], cast: (value) => castDateValue(value) }
+];
+
+const CAST_HANDLER_BY_NAME = new Map<string, CastHandler>(
+  CAST_ALIAS_GROUPS.flatMap(({ aliases, cast }) => aliases.map((alias) => [alias, cast] as const))
+);
+
 const castValue = (left: QValue, right: QValue): QValue => {
-  const castName =
-    left.kind === "symbol"
-      ? left.value
-      : left.kind === "string"
-        ? left.value
-        : left.kind === "number" && left.numericType === "short"
-          ? `${left.value}h`
-          : null;
+  const castName = castNameFromLeftOperand(left);
   if (castName === null) {
     throw new QRuntimeError("type", "Cast expects a symbol or string on the left");
   }
 
-  switch (castName) {
-    case "":
-    case "symbol":
-    case "11h":
-      return castSymbolValue(right);
-    case "boolean":
-    case "bool":
-    case "1h":
-      return castBooleanValue(right);
-    case "short":
-    case "h":
-    case "5h":
-      return castShortValue(right);
-    case "int":
-    case "i":
-    case "long":
-    case "j":
-    case "6h":
-    case "7h":
-      return castIntValue(right);
-    case "float":
-    case "real":
-    case "e":
-    case "f":
-    case "8h":
-    case "9h":
-      return castFloatValue(right);
-    case "10h":
-    case "char":
-    case "string":
-      return castCharValue(right);
-    case "date":
-    case "14h":
-      return castDateValue(right);
-    default:
-      throw new QRuntimeError("nyi", `Cast ${castName}$ is not implemented yet`);
+  const cast = CAST_HANDLER_BY_NAME.get(castName);
+  if (!cast) {
+    throw new QRuntimeError("nyi", `Cast ${castName}$ is not implemented yet`);
   }
+
+  return cast(right);
 };
 
 const xbarValue = (left: QValue, right: QValue): QValue =>
@@ -5300,26 +5290,30 @@ const tableColumnByName = (table: QTable, name: string) => {
   return column;
 };
 
+const applyListIndex = (list: QList, args: QValue[]) => {
+  if (args.length === 1) {
+    return indexList(list, args[0]!);
+  }
+  if (args.length === 2) {
+    return indexNestedRows(list, args);
+  }
+  throw new QRuntimeError("rank", "List indexing expects one or two arguments");
+};
+
+const applyStringIndex = (text: QString, args: QValue[]) =>
+  indexString(text, requireUnaryIndex(args, "String indexing expects one argument"));
+
+const applyDictionaryIndex = (dictionary: QDictionary, args: QValue[]) =>
+  indexDictionary(dictionary, requireUnaryIndex(args, "Dictionary indexing expects one argument"));
+
 const applyValue = (value: QValue, args: QValue[]): QValue => {
   switch (value.kind) {
     case "list":
-      if (args.length === 1) {
-        return indexList(value, args[0]);
-      }
-      if (args.length === 2) {
-        return indexNestedRows(value, args);
-      }
-      throw new QRuntimeError("rank", "List indexing expects one or two arguments");
+      return applyListIndex(value, args);
     case "string":
-      if (args.length !== 1) {
-        throw new QRuntimeError("rank", "String indexing expects one argument");
-      }
-      return indexString(value, args[0]);
+      return applyStringIndex(value, args);
     case "dictionary":
-      if (args.length !== 1) {
-        throw new QRuntimeError("rank", "Dictionary indexing expects one argument");
-      }
-      return indexDictionary(value, args[0]);
+      return applyDictionaryIndex(value, args);
     case "table":
       return indexTable(value, args);
     case "keyedTable":
@@ -5394,26 +5388,15 @@ const indexDictionary = (dictionary: QDictionary, index: QValue): QValue => {
   return lookup(index);
 };
 
-const indexTable = (table: QTable, args: QValue[]): QValue => {
-  if (args.length === 2) {
-    const rows = args[0].kind === "null" ? table : indexTable(table, [args[0]]);
-    if (rows.kind !== "table" && rows.kind !== "dictionary") {
-      throw new QRuntimeError("type", "Unexpected intermediate table selection result");
-    }
-    if (args[1].kind === "null") {
-      return rows;
-    }
-    return rows.kind === "table"
-      ? selectTableColumns(rows, args[1])
-      : indexDictionary(rows, args[1]);
-  }
+const isSymbolList = (value: QValue) =>
+  value.kind === "list" && value.items.every((item) => item.kind === "symbol");
 
-  const index = requireUnaryIndex(args, "Table indexing expects one or two arguments");
+const selectTableByUnaryIndex = (table: QTable, index: QValue): QValue => {
   if (index.kind === "symbol") {
     return tableColumnByName(table, index.value);
   }
 
-  if (index.kind === "list" && index.items.every((item) => item.kind === "symbol")) {
+  if (isSymbolList(index)) {
     return selectTableColumns(table, index);
   }
 
@@ -5426,6 +5409,33 @@ const indexTable = (table: QTable, args: QValue[]): QValue => {
   }
 
   throw new QRuntimeError("type", "Unsupported table index");
+};
+
+const projectTableSelection = (selection: QValue, columnSelector: QValue) => {
+  if (columnSelector.kind === "null") {
+    return selection;
+  }
+
+  if (selection.kind === "table") {
+    return selectTableColumns(selection, columnSelector);
+  }
+
+  if (selection.kind === "dictionary") {
+    return indexDictionary(selection, columnSelector);
+  }
+
+  throw new QRuntimeError("type", "Unexpected intermediate table selection result");
+};
+
+const indexTable = (table: QTable, args: QValue[]): QValue => {
+  if (args.length === 2) {
+    const [rowSelector, columnSelector] = args;
+    const rows = rowSelector.kind === "null" ? table : selectTableByUnaryIndex(table, rowSelector);
+    return projectTableSelection(rows, columnSelector);
+  }
+
+  const index = requireUnaryIndex(args, "Table indexing expects one or two arguments");
+  return selectTableByUnaryIndex(table, index);
 };
 
 const rowFromTable = (table: QTable, position: number): QDictionary =>

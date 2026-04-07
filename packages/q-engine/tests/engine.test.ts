@@ -225,7 +225,9 @@ describe("q engine smoke tests", () => {
     const session = createSession();
     expect(formatValue(session.evaluate("`symbol$()").value)).toBe("()\n");
     expect(formatValue(session.evaluate("`long$()").value)).toBe("()\n");
+    expect(formatValue(session.evaluate("11h$(\"ab\";\"cd\")").value)).toBe("`ab`cd\n");
     expect(formatValue(session.evaluate("`boolean$1 0 2").value)).toBe("101b\n");
+    expect(formatValue(session.evaluate("5h$1.9 2.1").value)).toBe("1h 2h\n");
     expect(formatValue(session.evaluate("`short$1.9 2.1").value)).toBe("1h 2h\n");
     expect(formatValue(session.evaluate("`int$1.9 2.1").value)).toBe("1 2\n");
     expect(formatValue(session.evaluate("`float$1 2 3").value)).toBe("1 2 3\n");

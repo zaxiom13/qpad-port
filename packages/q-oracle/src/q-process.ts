@@ -47,6 +47,78 @@ interface SpawnedQProcess {
   stderr: { value: string };
 }
 
+interface BufferedOutput {
+  value: string;
+}
+
+interface MarkedResponseOptions {
+  child: ChildProcessWithoutNullStreams;
+  stdout: BufferedOutput;
+  stderr: BufferedOutput;
+  binary: string;
+  program: string;
+  marker: string;
+  timeoutMs?: number;
+}
+
+const UTF8_ENCODING: BufferEncoding = "utf8";
+const Q_EXIT_COMMAND = "\\\\\n";
+const Q_PROBE_PROGRAM = "1+1";
+const SESSION_MARKER_PREFIX = "__QPAD_END_";
+const FIXTURE_KEY_SEPARATOR = ":";
+
+const BROWSER_HOST_ONLY_PATTERNS = [
+  "hopen",
+  "hclose",
+  "hcount",
+  "hdel",
+  "read0",
+  "read1",
+  "system \"",
+  "\\l",
+  ".z.f",
+  ".z.h",
+  ".z.w",
+  ".z.ws",
+  ".z.wo",
+  ".z.wc",
+  ".z.pq",
+  ".z.pc",
+  ".z.po",
+  ".z.pg",
+  ".z.ps",
+  ".z.ph",
+  ".z.pp",
+  ".z.pw",
+  ".q.chk",
+  ".q.dd",
+  ".q.dpft",
+  ".q.bv",
+  ".q.vp",
+  ".q.en",
+  "tables[]",
+  "get `:",
+  ".q.addr",
+  ".q.w[",
+  ".q.gc",
+  ".q.gz",
+  ".q.host",
+  ".q.hp",
+  ".q.hg",
+  ".q.fs",
+  ".q.ft",
+  ".q.ff",
+  ".q.fu",
+  ".q.fc",
+  ".q.map",
+  ".q.par",
+  ".q.qp",
+  ".q.bt",
+  "key`.q",
+  ".z.u",
+  ".z.x"
+] as const;
+
 export const normalizeQText = (text: string) =>
   text.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "").trimEnd();
 
@@ -61,58 +133,7 @@ export const normalizeQError = (stderr: string) =>
 
 export const classifyBrowserSafety = (program: string, context = "") => {
   const text = `${context}\n${program}`.toLowerCase();
-  const browserHostOnlyPatterns = [
-    "hopen",
-    "hclose",
-    "hcount",
-    "hdel",
-    "read0",
-    "read1",
-    "system \"",
-    "\\l",
-    ".z.f",
-    ".z.h",
-    ".z.w",
-    ".z.ws",
-    ".z.wo",
-    ".z.wc",
-    ".z.pq",
-    ".z.pc",
-    ".z.po",
-    ".z.pg",
-    ".z.ps",
-    ".z.ph",
-    ".z.pp",
-    ".z.pw",
-    ".q.chk",
-    ".q.dd",
-    ".q.dpft",
-    ".q.bv",
-    ".q.vp",
-    ".q.en",
-    "tables[]",
-    "get `:",
-    ".q.addr",
-    ".q.w[",
-    ".q.gc",
-    ".q.gz",
-    ".q.host",
-    ".q.hp",
-    ".q.hg",
-    ".q.fs",
-    ".q.ft",
-    ".q.ff",
-    ".q.fu",
-    ".q.fc",
-    ".q.map",
-    ".q.par",
-    ".q.qp",
-    ".q.bt",
-    "key`.q",
-    ".z.u",
-    ".z.x"
-  ];
-  return !browserHostOnlyPatterns.some((pattern) => text.includes(pattern));
+  return !BROWSER_HOST_ONLY_PATTERNS.some((pattern) => text.includes(pattern));
 };
 
 const spawnQProcess = (binary: string, options: Pick<QProcessOptions, "cwd" | "env"> = {}): SpawnedQProcess => {
@@ -125,11 +146,11 @@ const spawnQProcess = (binary: string, options: Pick<QProcessOptions, "cwd" | "e
   const stderr = { value: "" };
 
   child.stdout.on("data", (chunk) => {
-    stdout.value += chunk.toString("utf8");
+    stdout.value += chunk.toString(UTF8_ENCODING);
   });
 
   child.stderr.on("data", (chunk) => {
-    stderr.value += chunk.toString("utf8");
+    stderr.value += chunk.toString(UTF8_ENCODING);
   });
 
   return { child, stdout, stderr };
@@ -137,6 +158,126 @@ const spawnQProcess = (binary: string, options: Pick<QProcessOptions, "cwd" | "e
 
 const createTimeout = (timeoutMs: number | undefined, callback: () => void) =>
   timeoutMs && timeoutMs > 0 ? setTimeout(callback, timeoutMs) : null;
+
+const delay = (timeoutMs: number | undefined) =>
+  timeoutMs && timeoutMs > 0 ? new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)) : Promise.resolve();
+
+const createSessionMarker = () =>
+  `${SESSION_MARKER_PREFIX}_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
+
+const outputBeforeMarker = (output: string, marker: string) => {
+  const markerIndex = output.indexOf(marker);
+  return markerIndex >= 0 ? output.slice(0, markerIndex) : null;
+};
+
+const tryReadMarkedResponse = ({
+  stdout,
+  stderr,
+  binary,
+  program,
+  marker,
+  stdoutStart,
+  stderrStart
+}: MarkedResponseOptions & { stdoutStart: number; stderrStart: number }) => {
+  const stdoutChunk = stdout.value.slice(stdoutStart);
+  const stderrChunk = stderr.value.slice(stderrStart);
+  const resolvedStdout = outputBeforeMarker(stdoutChunk, marker);
+  const resolvedStderr = outputBeforeMarker(stderrChunk, marker);
+
+  if (resolvedStdout === null && resolvedStderr === null) {
+    return null;
+  }
+
+  return {
+    binary,
+    program,
+    stdout: resolvedStdout ?? stdoutChunk,
+    stderr: resolvedStderr ?? stderrChunk,
+    exitCode: null,
+    signal: null
+  } satisfies QProcessResult;
+};
+
+const waitForMarkedResponse = ({
+  child,
+  stdout,
+  stderr,
+  binary,
+  program,
+  marker,
+  timeoutMs
+}: MarkedResponseOptions) =>
+  new Promise<QProcessResult>((resolve, reject) => {
+    const stdoutStart = stdout.value.length;
+    const stderrStart = stderr.value.length;
+    let settled = false;
+    const timer = createTimeout(timeoutMs, () => {
+      settle(() => reject(new Error(`[oracle timeout] ${program}`)));
+    });
+
+    const cleanup = () => {
+      child.stdout.off("data", onData);
+      child.stderr.off("data", onData);
+      child.off("error", onError);
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+
+    const settle = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      callback();
+    };
+
+    const onData = () => {
+      const result = tryReadMarkedResponse({
+        child,
+        stdout,
+        stderr,
+        binary,
+        program,
+        marker,
+        timeoutMs,
+        stdoutStart,
+        stderrStart
+      });
+      if (result) {
+        settle(() => resolve(result));
+      }
+    };
+
+    const onError = (error: Error) => {
+      settle(() => reject(error));
+    };
+
+    child.stdout.on("data", onData);
+    child.stderr.on("data", onData);
+    child.once("error", onError);
+
+    child.stdin.write(`${program}\n`);
+    child.stdin.write(`-1 "${marker}"\n`);
+  });
+
+const fixtureDedupeKey = (fixture: Pick<QFixture, "origin" | "page" | "suite" | "program">) =>
+  [
+    fixture.origin,
+    fixture.page ?? "",
+    fixture.suite ?? "",
+    normalizeQProgram(fixture.program)
+  ].join(FIXTURE_KEY_SEPARATOR);
+
+const fixtureSortKey = (fixture: Pick<QFixture, "origin" | "page" | "suite" | "id">) =>
+  [
+    fixture.origin,
+    fixture.page ?? "",
+    fixture.suite ?? "",
+    fixture.id
+  ].join(FIXTURE_KEY_SEPARATOR);
 
 export const resolveQBinary = async (preferred?: string) => {
   const candidates = [
@@ -198,7 +339,7 @@ export const runQ = async (
       });
     });
 
-    child.stdin.write(`${program}\n\\\\\n`);
+    child.stdin.write(`${program}\n${Q_EXIT_COMMAND}`);
     child.stdin.end();
   });
 };
@@ -216,88 +357,21 @@ export const createQSession = async (options: QProcessOptions = {}): Promise<QSe
 
   const evaluate: QSession["evaluate"] = (program, executionOptions = {}) =>
     (chain = chain.then(
-      () =>
-        new Promise<QProcessResult>((resolve, reject) => {
-          if (closed) {
-            reject(new Error("q session is closed"));
-            return;
-          }
+      async () => {
+        if (closed) {
+          throw new Error("q session is closed");
+        }
 
-          const marker = `__QPAD_END_${Date.now()}_${Math.random().toString(36).slice(2)}__`;
-          const stdoutStart = stdout.value.length;
-          const stderrStart = stderr.value.length;
-          let settled = false;
-          const timer = createTimeout(executionOptions.timeoutMs, () => {
-            settled = true;
-            reject(new Error(`[oracle timeout] ${program}`));
-          });
-
-          const finish = () => {
-            if (settled) {
-              return;
-            }
-
-            const stdoutChunk = stdout.value.slice(stdoutStart);
-            const stderrChunk = stderr.value.slice(stderrStart);
-            const stdoutMarker = stdoutChunk.indexOf(marker);
-            const stderrMarker = stderrChunk.indexOf(marker);
-            if (stdoutMarker === -1 && stderrMarker === -1) {
-              return;
-            }
-
-            settled = true;
-            if (timer) {
-              clearTimeout(timer);
-            }
-
-            resolve({
-              binary,
-              program,
-              stdout: stdoutMarker >= 0 ? stdoutChunk.slice(0, stdoutMarker) : stdoutChunk,
-              stderr: stderrMarker >= 0 ? stderrChunk.slice(0, stderrMarker) : stderrChunk,
-              exitCode: null,
-              signal: null
-            });
-          };
-
-          const onStdout = () => finish();
-          const onStderr = () => finish();
-          const onError = (error: Error) => {
-            if (settled) {
-              return;
-            }
-            settled = true;
-            if (timer) {
-              clearTimeout(timer);
-            }
-            reject(error);
-          };
-
-          child.stdout.on("data", onStdout);
-          child.stderr.on("data", onStderr);
-          child.once("error", onError);
-
-          child.stdin.write(`${program}\n`);
-          child.stdin.write(`-1 "${marker}"\n`);
-
-          const cleanup = () => {
-            child.stdout.off("data", onStdout);
-            child.stderr.off("data", onStderr);
-            child.off("error", onError);
-          };
-
-          const wrappedResolve = resolve;
-          resolve = (value) => {
-            cleanup();
-            wrappedResolve(value);
-          };
-
-          const wrappedReject = reject;
-          reject = (error) => {
-            cleanup();
-            wrappedReject(error);
-          };
-        })
+        return waitForMarkedResponse({
+          child,
+          stdout,
+          stderr,
+          binary,
+          program,
+          marker: createSessionMarker(),
+          timeoutMs: executionOptions.timeoutMs
+        });
+      }
     ));
 
   const close = async () => {
@@ -305,7 +379,7 @@ export const createQSession = async (options: QProcessOptions = {}): Promise<QSe
       return;
     }
     closed = true;
-    child.stdin.write("\\\\\n");
+    child.stdin.write(Q_EXIT_COMMAND);
     child.stdin.end();
     await new Promise<void>((resolve) => {
       child.once("close", () => resolve());
@@ -324,7 +398,7 @@ export interface QSessionOptions extends QProcessOptions {
 export const runQSession = async (
   programs: readonly string[],
   options: QSessionOptions = {}
-) : Promise<QSessionResult[]> => {
+): Promise<QSessionResult[]> => {
   const binary = await resolveQBinary(options.qBinary);
   if (programs.length === 0) {
     return [];
@@ -334,7 +408,7 @@ export const runQSession = async (
   let prefix = "";
   let previousTranscript = "";
 
-  for (const program of programs) {
+  for (const [index, program] of programs.entries()) {
     prefix = prefix ? `${prefix}\n${program}` : program;
     const result = await runQ(prefix, { ...options, qBinary: binary });
     const transcript = normalizeQText(result.stdout || result.stderr);
@@ -352,6 +426,10 @@ export const runQSession = async (
     });
 
     previousTranscript = transcript;
+
+    if (options.settleMs && index < programs.length - 1) {
+      await delay(options.settleMs);
+    }
   }
 
   return results;
@@ -376,7 +454,7 @@ const probeQBinary = async (binary: string): Promise<QProcessResult> => {
     child.on("close", (exitCode, signal) => {
       resolve({
         binary,
-        program: "1+1",
+        program: Q_PROBE_PROGRAM,
         stdout: stdout.value,
         stderr: stderr.value,
         exitCode,
@@ -384,7 +462,7 @@ const probeQBinary = async (binary: string): Promise<QProcessResult> => {
       });
     });
 
-    child.stdin.write("1+1\n\\\\\n");
+    child.stdin.write(`${Q_PROBE_PROGRAM}\n${Q_EXIT_COMMAND}`);
     child.stdin.end();
   });
 };
@@ -412,7 +490,7 @@ export const mapLimit = async <T, R>(
 export const dedupeFixtures = (fixtures: QFixture[]) => {
   const seen = new Set<string>();
   return fixtures.filter((fixture) => {
-    const key = `${fixture.origin}:${fixture.page ?? ""}:${fixture.suite ?? ""}:${normalizeQProgram(fixture.program)}`;
+    const key = fixtureDedupeKey(fixture);
     if (seen.has(key)) {
       return false;
     }
@@ -423,8 +501,8 @@ export const dedupeFixtures = (fixtures: QFixture[]) => {
 
 export const sortFixtures = (fixtures: QFixture[]) =>
   [...fixtures].sort((a, b) => {
-    const aa = `${a.origin}:${a.page ?? ""}:${a.suite ?? ""}:${a.id}`;
-    const bb = `${b.origin}:${b.page ?? ""}:${b.suite ?? ""}:${b.id}`;
+    const aa = fixtureSortKey(a);
+    const bb = fixtureSortKey(b);
     return aa.localeCompare(bb);
   });
 

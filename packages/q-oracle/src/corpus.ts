@@ -7,36 +7,43 @@ import {
   type QManifest
 } from "./q-process.ts";
 
-export const stripHtml = (html: string) =>
-  html
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/<[^>]*>/g, "");
+const HTML_ENTITY_REPLACEMENTS = [
+  [/&nbsp;/g, " "],
+  [/&lt;/g, "<"],
+  [/&gt;/g, ">"],
+  [/&quot;/g, '"'],
+  [/&#39;/g, "'"],
+  [/&amp;/g, "&"]
+] as const;
+const HTML_TAG_PATTERN = /<[^>]*>/g;
+const Q_BLOCK_PATTERN =
+  /<pre class="highlight"><code class="language-q">([\s\S]*?)<\/code><\/pre>/g;
+const Q_PROMPT_PATTERN = /^q\)(.*)$/;
+const UPSTREAM_FIXTURE_PATTERN = /check\("((?:[^"\\]|\\.)*)","((?:[^"\\]|\\.)*)"\)/;
+const IGNORE_ANNOTATION = "@Ignore";
+const SYNTAX_REFERENCE_PAGE = "https://code.kx.com/q/basics/syntax/";
+const SHARED_SYNTAX_BLOCK_RANGE = { start: 12, end: 15 } as const;
 
-export const extractQBlocks = (html: string) => {
-  const blocks: string[] = [];
-  const re =
-    /<pre class="highlight"><code class="language-q">([\s\S]*?)<\/code><\/pre>/g;
-  for (const match of html.matchAll(re)) {
-    blocks.push(stripHtml(match[1] ?? ""));
-  }
-  return blocks;
-};
+export const stripHtml = (html: string) =>
+  HTML_ENTITY_REPLACEMENTS.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    html
+  ).replace(HTML_TAG_PATTERN, "");
+
+export const extractQBlocks = (html: string) =>
+  Array.from(html.matchAll(Q_BLOCK_PATTERN), (match) => stripHtml(match[1] ?? ""));
 
 export const extractProgramsFromQBlock = (block: string) => {
   const programs: string[] = [];
   for (const line of block.split(/\r?\n/)) {
-    const trimmed = line.trimEnd();
-    const qPrompt = trimmed.match(/^q\)(.*)$/);
-    if (qPrompt) {
-      const program = normalizeQProgram(qPrompt[1] ?? "");
-      if (program) {
-        programs.push(program);
-      }
+    const qPrompt = line.trimEnd().match(Q_PROMPT_PATTERN);
+    if (!qPrompt) {
+      continue;
+    }
+
+    const program = normalizeQProgram(qPrompt[1] ?? "");
+    if (program) {
+      programs.push(program);
     }
   }
   return programs;
@@ -46,24 +53,26 @@ export const buildReferenceFixtures = (
   page: string,
   html: string,
   origin: QFixture["origin"] = "reference"
-) => {
-  const fixtures: QFixture[] = [];
-  const blocks = extractQBlocks(html);
-  blocks.forEach((block, blockIndex) => {
-    const programs = extractProgramsFromQBlock(block);
-    programs.forEach((program, programIndex) => {
-      fixtures.push({
-        id: `${page}#${blockIndex}.${programIndex}`,
-        origin,
-        page,
-        sessionId: `${page}#${blockIndex}`,
-        program,
-        browserSafe: classifyBrowserSafety(program, page)
-      });
-    });
-  });
-  return sortFixtures(dedupeFixtures(fixtures));
-};
+) =>
+  sortFixtures(
+    dedupeFixtures(
+      extractQBlocks(html).flatMap((block, blockIndex) =>
+        extractProgramsFromQBlock(block).map((program, programIndex) => ({
+          id: `${page}#${blockIndex}.${programIndex}`,
+          origin,
+          page,
+          sessionId: `${page}#${blockIndex}`,
+          program,
+          browserSafe: classifyBrowserSafety(program, page)
+        }))
+      )
+    )
+  );
+
+const hasIgnoreAnnotation = (lines: string[], lineIndex: number) =>
+  lines
+    .slice(Math.max(0, lineIndex - 4), lineIndex)
+    .some((previousLine) => previousLine.includes(IGNORE_ANNOTATION));
 
 export const buildUpstreamFixtures = (
   suite: string,
@@ -72,18 +81,16 @@ export const buildUpstreamFixtures = (
 ) => {
   const fixtures: QFixture[] = [];
   const lines = source.split(/\r?\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const match = line.match(/check\("((?:[^"\\]|\\.)*)","((?:[^"\\]|\\.)*)"\)/);
+  for (const [lineIndex, line] of lines.entries()) {
+    const match = line.match(UPSTREAM_FIXTURE_PATTERN);
     if (!match) {
       continue;
     }
-    const ignored = lines.slice(Math.max(0, i - 4), i).some((prior) =>
-      prior.includes("@Ignore")
-    );
+
+    const ignored = hasIgnoreAnnotation(lines, lineIndex);
     const program = match[1].replace(/\\"/g, '"');
     fixtures.push({
-      id: `${suite}:${i + 1}`,
+      id: `${suite}:${lineIndex + 1}`,
       origin,
       suite,
       program,
@@ -104,37 +111,46 @@ export const mergeManifests = (...manifests: QManifest[]) => {
   } satisfies QManifest;
 };
 
+const isBrowserSafeFixture = (fixture: QFixture) =>
+  classifyBrowserSafety(fixture.program, fixture.page ?? fixture.suite ?? "");
+
 export const browserSafeFixtures = (manifest: QManifest) =>
-  manifest.fixtures.filter(
-    (fixture) =>
-      !fixture.ignored &&
-      classifyBrowserSafety(fixture.program, fixture.page ?? fixture.suite ?? "")
-  );
+  manifest.fixtures.filter((fixture) => !fixture.ignored && isBrowserSafeFixture(fixture));
 
 export const hostOnlyFixtures = (manifest: QManifest) =>
-  manifest.fixtures.filter(
-    (fixture) =>
-      fixture.ignored ||
-      !classifyBrowserSafety(fixture.program, fixture.page ?? fixture.suite ?? "")
-  );
+  manifest.fixtures.filter((fixture) => fixture.ignored || !isBrowserSafeFixture(fixture));
+
+const sharedSyntaxSessionKey = (fixture: QFixture) => {
+  if (fixture.page !== SYNTAX_REFERENCE_PAGE) {
+    return null;
+  }
+
+  const match = fixture.id.match(/#(\d+)\./);
+  const block = Number(match?.[1] ?? Number.NaN);
+  return block >= SHARED_SYNTAX_BLOCK_RANGE.start && block <= SHARED_SYNTAX_BLOCK_RANGE.end
+    ? `${fixture.page}#${SHARED_SYNTAX_BLOCK_RANGE.start}-${SHARED_SYNTAX_BLOCK_RANGE.end}`
+    : null;
+};
+
+const referenceFixtureSessionKey = (fixture: QFixture) => {
+  const blockMatch = fixture.id.match(/^(.*#\d+)\.\d+$/);
+  return blockMatch?.[1] ?? fixture.id;
+};
 
 export const fixtureSessionKey = (fixture: QFixture) => {
-  if (fixture.page === "https://code.kx.com/q/basics/syntax/") {
-    const match = fixture.id.match(/#(\d+)\./);
-    const block = Number(match?.[1] ?? Number.NaN);
-    if (block >= 12 && block <= 15) {
-      return `${fixture.page}#12-15`;
-    }
+  const syntaxKey = sharedSyntaxSessionKey(fixture);
+  if (syntaxKey) {
+    return syntaxKey;
   }
+
   if (fixture.sessionId) {
     return fixture.sessionId;
   }
+
   if (fixture.origin === "reference") {
-    const blockMatch = fixture.id.match(/^(.*#\d+)\.\d+$/);
-    if (blockMatch) {
-      return blockMatch[1] ?? fixture.id;
-    }
+    return referenceFixtureSessionKey(fixture);
   }
+
   return fixture.id;
 };
 
@@ -142,12 +158,9 @@ export const groupFixturesBySession = (fixtures: QFixture[]) => {
   const groups = new Map<string, QFixture[]>();
   for (const fixture of fixtures) {
     const key = fixtureSessionKey(fixture);
-    const group = groups.get(key);
-    if (group) {
-      group.push(fixture);
-    } else {
-      groups.set(key, [fixture]);
-    }
+    const group = groups.get(key) ?? [];
+    group.push(fixture);
+    groups.set(key, group);
   }
 
   return [...groups.entries()].map(([sessionId, groupedFixtures]) => ({
